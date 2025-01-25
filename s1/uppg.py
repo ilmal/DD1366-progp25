@@ -31,3 +31,17 @@ if __name__ == "__main__":
     print(contains_substring("programmeringsparadigm", x))  # False
 
 
+def equation():     # uppgift 5
+    return r'^[+\-]?\d+(?:[+\-*/]\d+)*(?:=[+\-]?\d+(?:[+\-*/]\d+)*)?$'
+
+def parentheses():  # uppgift 6
+    return r'^(?:\(\)|\(\(\)\)|\(\(\(\)\)\)|\(\(\(\(\)\)\)\)|\(\(\(\(\(\)\)\)\)\))+$'
+
+def sorted3():      # uppgift 7
+    asc_triples = []
+    for i in range(10):
+        for j in range(i+1, 10):
+            for k in range(j+1, 10):
+                asc_triples.append(f"{i}{j}{k}")
+    pattern = "|".join(asc_triples)  # "012|013|014|...|789"
+    return rf'^.*(?:{pattern}).*$'

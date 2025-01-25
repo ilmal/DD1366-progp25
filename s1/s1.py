@@ -10,18 +10,36 @@
 ########################################################################
 
 def dna():          # uppgift 1
-    return '^[ACGT]+$'
+    # ^  -> början av strängen
+    # $  -> slutet av strängen, alltså att hela strängen matchar
+    # [ACGT] -> bara en av A, C, G, T får vara med
+    # + -> det måste förekomma minst en gång, alltså inte tillåta en tom sträng
+    return r'^[ACGT]+$'
 
 def sorted():       # uppgift 2
-    return '^9*8*7*6*5*4*3*2*1*0*$'
+    # ^  -> början av strängen
+    # 9* -> 0 eller fler 9:or, vi tillåter alltså inga 9 oxå
+    # samma sak för alla siffror (däremot får då inte ex en 6a förekomma innan en 7a)
+    # $  -> slutet av strängen, alltså att hela strängen matchar
+    return r'^9*8*7*6*5*4*3*2*1*0*$'
 
 def hidden1(x):     # uppgift 3
     # indata x är strängen som vi vill konstruera ett regex för att söka efter
-    return ""
+
+    # ^  -> början av strängen
+    # .* -> 0 eller fler av vilken karaktär som helst . = vilken karaktär som helst, * = 0 eller fler
+    # x  -> den sträng vi vill söka efter
+    # .* -> 0 eller fler av vilken karaktär som helst ännu en gång
+    # $  -> slutet av strängen, alltså att hela strängen matchar
+    return '^.*' + x + '.*$'
 
 def hidden2(x):     # uppgift 4
     # indata x är strängen som vi vill konstruera ett regex för att söka efter
-    return ""
+
+    # Samma som ovan, fast med join. 
+    # Ifall vi tar ex progp så gör join att det blir:
+    # ^.*p.*r.*o.*g.*p.*$, alltså sätter man ihop varje karaktär med .*
+    return '^.*' + '.*'.join(x) + '.*$'
 
 def equation():     # uppgift 5
     return ""
