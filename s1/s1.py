@@ -51,9 +51,9 @@ def parentheses():  # uppgift 6
 
 def sorted3():      # uppgift 7
     asc_triples = []
-    for i in range(10):
-        for j in range(i+1, 10):
-            for k in range(j+1, 10):
+    for i in range(10):  # första siffran (0-9)
+        for j in range(i+1, 10):  # andra siffran (måste vara större än i)
+            for k in range(j+1, 10):  #tredje siffran (måste vara större än j)
                 asc_triples.append(f"{i}{j}{k}")
     pattern = "|".join(asc_triples)  # "012|013|014|...|789"
     return rf'^.*(?:{pattern}).*$'
