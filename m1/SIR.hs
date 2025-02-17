@@ -1,21 +1,27 @@
 sirSimulate :: Double -> Double -> Int -> Int -> (Int, Int, Int) -> [(Int, Int, Int)]
+-- iterate f x = [x, f x, f (f x), f (f (f x)), ...]
+-- take n array = de första n elementen i array
 sirSimulate beta gamma n steps (s0, i0, r0) =
-    take (steps) $ iterate (nextStep beta gamma (fromIntegral n)) (s0, i0, r0)
+  take steps (iterate (nextStep beta gamma (fromIntegral n)) (s0, i0, r0))
   where
+    -- gör om s, i och r till flyttal för beräkningarna senare
     nextStep :: Double -> Double -> Double -> (Int, Int, Int) -> (Int, Int, Int)
+    -- Returnerar nya SIR värden. 
     nextStep beta gamma n (sPrev, iPrev, rPrev) =
-        let s = fromIntegral sPrev
-            i = fromIntegral iPrev
-            r = fromIntegral rPrev
-            deltaSI = beta * s * i / n
-            deltaIR = gamma * i
-            sNew = s - deltaSI
-            iNew = i + deltaSI - deltaIR
-            rNew = r + deltaIR
-        in (round sNew, round iNew, round rNew)
+        (round sNew, round iNew, round rNew)
+      where
+        s = fromIntegral sPrev
+        i = fromIntegral iPrev
+        r = fromIntegral rPrev
+        deltaSI = (beta * s * i) / n
+        deltaIR = gamma * i
+        sNew = s - deltaSI
+        iNew = i + deltaSI - deltaIR
+        rNew = r + deltaIR
 
 -- [(990,10,0),(987,12,1),(983,14,2),(979,17,3),(974,20,5),(968,24,7),(961,29,9),(953,34,12),(943,40,15),(932,47,19)]
 -- [(990,10,0),(987,12,1),(983,14,2),(979,17,3),(974,20,5),(968,24,7),(961,29,9),(953,34,12),(943,40,15),(932,47,19),(919,55,24)]
+-- [(990,10,0),(987,12,1),(983,14,2),(979,17,3),(974,20,5),(968,24,7),(961,29,9),(953,34,12),(943,40,15),(932,47,19)]
 -- [(990,10,0),(987,12,1),(983,14,2),(979,17,3),(974,20,5),(968,24,7),(961,29,9),(953,34,12),(943,40,15),(932,47,19)]
 
 -- [(4950,50,0),(4945,52,2),(4940,55,5),(4935,58,8),(4929,61,11),(4923,64,14),(4917,67,17),(4910,70,20),(4903,73,24),(4896,77,28)]

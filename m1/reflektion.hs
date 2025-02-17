@@ -1,32 +1,32 @@
 data Vec3 = Vec3 Double Double Double deriving (Eq, Show)
 
--- Skalärprodukt
+-- skalär
 dot :: Vec3 -> Vec3 -> Double
 dot (Vec3 ax ay az) (Vec3 bx by bz) = ax * bx + ay * by + az * bz
 
--- Multiplicera en vektor med en skalär
+-- mul en vektor med en skalär
 smul :: Double -> Vec3 -> Vec3
 smul t (Vec3 x y z) = Vec3 (t * x) (t * y) (t * z)
 
--- Vektorsubtraktion
+-- vektorsub
 sub :: Vec3 -> Vec3 -> Vec3
 sub (Vec3 ax ay az) (Vec3 bx by bz) = Vec3 (ax - bx) (ay - by) (az - bz)
 
--- Negation av en vektor
+-- Neg av en vektor
 neg :: Vec3 -> Vec3
 neg (Vec3 x y z) = Vec3 (-x) (-y) (-z)
 
---r = d − 2(d · n')n', där vi först säkerställer att n är "rättvänd".
+--r = d − 2(d · n')n', där vi först säkerställer att n är rättvänt.
 reflect :: Vec3 -> Vec3 -> Vec3
-reflect d n =
-  let n' = if dot d n < 0 then n else neg n
-  in d `sub` smul (2 * dot d n') n'
+reflect d n = d `sub` smul (2 * dot d n') n'
+  where
+    n' = if dot d n < 0 then n else neg n
 
--- Filtrerar bort alla ljusstrålar vars z-komponent är negativ.
+-- ta bort alla ljusstrålar där z-komponent är negativ.
 removeNegativeZ :: [Vec3] -> [Vec3]
 removeNegativeZ rays = filter (\(Vec3 _ _ z) -> z >= 0) rays
 
--- Fogar ihop reflektion och filtrering med punktnotation.
+-- sätt ihop reflektion och filtrering med punktnotation.
 reflectAndRemoveNegativeZ :: Vec3 -> [Vec3] -> [Vec3]
 reflectAndRemoveNegativeZ normal = removeNegativeZ . map (\ray -> reflect ray normal)
 
