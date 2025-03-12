@@ -27,6 +27,7 @@ removeNegativeZ :: [Vec3] -> [Vec3]
 removeNegativeZ rays = filter (\(Vec3 _ _ z) -> z >= 0) rays
 
 -- sätt ihop reflektion och filtrering med punktnotation.
+-- galen curried funktion, först tar den en normalvektor och returnerar en funktion som tar en lista av vektorer.
 reflectAndRemoveNegativeZ :: Vec3 -> [Vec3] -> [Vec3]
 reflectAndRemoveNegativeZ normal = removeNegativeZ . map (\ray -> reflect ray normal)
 

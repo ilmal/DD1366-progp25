@@ -39,7 +39,9 @@ def hidden2(x):     # uppgift 4
     # Samma som ovan, fast med join. 
     # Ifall vi tar ex progp så gör join att det blir:
     # ^.*p.*r.*o.*g.*p.*$, alltså sätter man ihop varje karaktär med .*
-    return '^.*' + '.*'.join(x) + '.*$'
+
+    # extra: för ett fixed antal tecken mellan varje karaktär: .{n} istället för .* 
+    return r'^.*' + r'.*'.join(x) + r'.*$'
 
 def equation():     # uppgift 5
     sign       = r'[+\-]?'
@@ -50,47 +52,66 @@ def equation():     # uppgift 5
     basic_expr = sign + number
     
     # operator följt av ett tal, upprepade noll eller flera gånger
-    ops_expr   = r'(?:' + operator + number + r')*'
+    ops_expr   = r'(' + operator + number + r')*'
     
     # = följt av ett nytt uttryck (samma mönster som ovan), som är valfritt
-    eq_expr    = r'(?:=' + basic_expr + ops_expr + r')?'
+    eq_expr    = r'(=' + basic_expr + ops_expr + r')?'
     
     return r'^' + basic_expr + ops_expr + eq_expr + r'$'
 
 
-# def parentheses():  # uppgift 6
-#     # max_depth = 5
-#     # levels = [None] * (max_depth + 1)
-#     # levels[1] = r'\(\)'
-#     # for d in range(2, max_depth + 1):
-#     #     inner = '|'.join(levels[1:d])
-#     #     levels[d] = r'\((?:' + inner + r')*\)'
-#     # return r'^(?:' + '|'.join(levels[1:]) + r')+$'
-
-#     return r"\(([^()]|(?R))*\)"
-#     # return r"^(?:(?:\(\))|\((?:\(\))*\)|\((?:(?:\(\)|\((?:\(\))*\)))*\)|\((?:(?:\(\)|\((?:\(\))*\)|\((?:(?:\(\)|\((?:\(\))*\)))*\)))*\)|\((?:(?:\(\)|\((?:\(\))*\)|\((?:(?:\(\)|\((?:\(\))*\)))*\)|\((?:(?:\(\)|\((?:\(\))*\)|\((?:(?:\(\)|\((?:\(\))*\)))*\)))*\)))*\)$"
-
-def parentheses():
-    inner  = r"(\(\))*"                     # matchar "()" upprepade gånger
-    level4 = r"(\(" + inner + r"\))*"       # matchar "(" följt av inner, noll eller flera gånger avslutad med ")"
+def parentheses(): # uppgift 6
+    inner  = r"(\(\))*"                     # matchar "()" 
+    level4 = r"(\(" + inner + r"\))*"       # nästa nivå
     level3 = r"(\(" + level4 + r"\))*"      # nästa nivå
     level2 = r"(\(" + level3 + r"\))*"      # nästa nivå
-    level1 = r"(\(" + level2 + r"\))"       # yttersta nivån eg, ""
+    level1 = r"(\(" + level2 + r"\))"       # yttersta nivån eg, "()" eller "()()()"
     regex  = r"^(" + level1 + r")+$"        # hela uttrycket
     return regex
 
 
 def sorted3():      # uppgift 7
-    group1 = r"01[2-9]"
-    group2 = r"[0-1]2[3-9]"
-    group3 = r"[0-2]3[4-9]"
-    group4 = r"[0-3]4[5-9]"
-    group5 = r"[0-4]5[6-9]"
-    group6 = r"[0-5]6[7-9]"
-    group7 = r"[0-6]7[8-9]"
-    group8 = r"[0-7]89"
+    arr = [
+        r"01[2-9]",
+        r"[0-1]2[3-9]",
+        r"[0-2]3[4-9]",
+        r"[0-3]4[5-9]",
+        r"[0-4]5[6-9]",
+        r"[0-5]6[7-9]",
+        r"[0-6]7[8-9]",
+        r"[0-7]89"
+    ]
 
-    return r"^[0-9]*(" + "|".join([group1, group2, group3, group4, group5, group6, group7, group8]) + r")[0-9]*$"
+    return r"^[0-9]*(" + "|".join(arr) + r")[0-9]*$"
+
+
+
+
+# Fråga 2
+# Vi kan inte direkt kombinera uppg 5 å 6, vi måste konstruera ett simulerat rekursivt fall då regex i grunden
+# inte är rekursivt. Vi kan dock använda oss av en rekursiv funktion som bygger upp en regex-sträng som hanterar både
+# paranteser och ekvationer.
+# ish:
+# def expr_depth1():
+#     basic_expr = från tidigare
+#     operator = från tidigare
+#     term1 = r"(" + basic_expr + "|\(" + basic_expr + "\))"
+#     return term1 + "(" + operator + term1 + ")*"
+#
+#
+# def expr_depth2():
+#     basic_expr = expr_depth1()
+#     operator = från tidigare
+#     term1 = r"(" + basic_expr + "|\(" + basic_expr + "\))"
+#     return term1 + "(" + operator + term1 + ")*"
+#
+# osv
+
+# Nej, vi kan inte generalisera lösningen för att hantera n antal siffror med ren regex. Vi kan antingen göra det för hand, 
+# eller skriva en funktion som genererar regex för varje siffra. Däremot använder detta annan kod än regex för att
+# generalisera. 
+
+
 
 #######################################################################
 # Raderna nedan är lite testkod som du kan använda för att provköra
@@ -112,11 +133,12 @@ def main():
     def hidden1_test(): return hidden1('test')
     def hidden2_test(): return hidden2('test')
     # tasks = [dna, sorted, hidden1_test, hidden2_test, equation, parentheses, sorted3]
-    tasks = [sorted3]
-    line = "()()()"
-    print('Skriv in teststrängar:')
-    for task in tasks:
-        result = '' if re.search(task(), line) else 'INTE '
-        print('%s(): "%s" matchar %suttrycket "%s"' % (task.__name__, line, result, task()))
+    tasks = [hidden2]
+    lines = ["p123r123oxyzgooop", "p123r123o123g12p"]
+    for line in lines:
+        print('Skriv in teststrängar:')
+        for task in tasks:
+            result = '' if re.search(task("progp"), line) else 'INTE '
+            print('%s(): "%s" matchar %suttrycket "%s"' % (task.__name__, line, result, task("progp")))
 if __name__ == '__main__': main()
 

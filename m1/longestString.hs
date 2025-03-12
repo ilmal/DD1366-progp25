@@ -4,7 +4,13 @@ compareLength :: String -> String -> String
 compareLength a b = if length a >= length b then a else b
 
 longestString :: [String] -> String
--- använder foldl som går igenom listan från vänster och applicerar compareLength mellan strängarna.
+-- använder foldl som går igenom listan från vänster och applicerar compareLength mellan strängarna.'
+-- Exempel:
+-- longestString ["hej", "hallå", "hejsan", "hi"]
+-- compareLength "" "hej" = "hej"
+-- compareLength "hej" "hallå" = "hallå"
+-- compareLength "hallå" "hejsan" = "hejsan"
+-- compareLength "hejsan" "hi" = "hejsan"
 longestString v = foldl compareLength "" v
 
 
