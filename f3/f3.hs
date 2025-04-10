@@ -16,10 +16,6 @@ data Player = Player {
   dir :: Direction 
   }
 
-<<<<<<< HEAD
-
-=======
->>>>>>> 26e33e3113aceb15c7eb4e02f166e377f0e46748
 -- två spelare, väggar, spelplanens storlek och om spelet är över
 data GameState = GameState
   { p1 :: Player
@@ -84,11 +80,7 @@ collision player state =
 movePlayers :: GameState -> GameState
 movePlayers state
   | collision newP1 newState = state { gameOver = True, winner = p2 state } -- checka ifall spelet är över (kollision)
-<<<<<<< HEAD
-  | collision newP2 newState = state { gameOver = True, winner = p1 state }  
-=======
   | collision newP2 newState = state { gameOver = True, winner = p1 state }
->>>>>>> 26e33e3113aceb15c7eb4e02f166e377f0e46748
   | otherwise = state { p1 = newP1, p2 = newP2, walls = newWalls }                   -- annars uppdatera spelplanen
   where
     newP1 = (p1 state){ pos = add (pos (p1 state)) (delta (dir (p1 state))) } -- flytta spelarna mha delta
@@ -114,17 +106,11 @@ render state scr = do
 -- Rita en ram runt spelplanen, oxå MONADER!!!!! :D
 drawBorder :: GameState -> Window -> IO ()
 drawBorder state scr = do
-<<<<<<< HEAD
-  let w = boardWidth state -- hämta spelplanens storlek
-      h = boardHeight state
--- mapM_ är en monadisk variant av map, dvs den tar en monadisk funktion, i detta fall en IO funktion, vi använder _ variant för att ignorera returvärdet
-=======
   let w = boardWidth state -- hämta bredden och höjden från GameState
       h = boardHeight state
   -- när man ritar med hscurses så flyttar vi först cursorn (nuvarande position) till en viss plats,
   -- sedan skriver vi ut en karaktär på den koordinaten. osv.
   -- mapM_ är en monadisk variant av map, dvs den tar en monadisk funktion, i detta fall en IO funktion, vi använder _ variant för att ignorera returvärdet
->>>>>>> 26e33e3113aceb15c7eb4e02f166e377f0e46748
   mapM_ (\x -> do
            wMove scr 0 x -- flyttar cursorn till (0,x) koordinater
            -- void för att vi inte bryr oss om returvärdet
@@ -153,15 +139,9 @@ dirToChar L = '<'
 dirToChar R = '>' 
 
 drawPlayer :: Window -> Player -> IO ()
-<<<<<<< HEAD
-drawPlayer scr (Player _ (x,y) d) = do
-  wMove scr y x
-  void $ waddch scr (charToCh (dirToChar d))
-=======
 drawPlayer scr (Player _ (x,y) d) = do          -- hämtar x,y och riktning från Player
   wMove scr y x                               -- flyttar cursorn till (y,x) koordinater
   void (waddch scr (charToCh (dirToChar d)))  -- skriver ut en karaktär på den platsen (spelarens huvud) (samma som i drawBorder)
->>>>>>> 26e33e3113aceb15c7eb4e02f166e377f0e46748
 
 -- Spelloopen
 gameLoop :: GameState -> Window -> IO ()
@@ -169,14 +149,6 @@ gameLoop state scr = do
   if gameOver state -- checka ifall spelet är slut
     then do
       mvWAddStr scr (boardHeight state) 0 ("Game Over! " ++ name (winner state) ++ " vann! Tryck på ESC för att starta om.")
-<<<<<<< HEAD
-      refresh
-      waitForEsc scr
-    else do
-      ch <- getch
-      let intCh = fromIntegral ch :: Int
-      let state1 = if intCh == (-1) then state else handleInput intCh state
-=======
       refresh -- skriv ut meddelandet ovan 
       waitForEsc scr -- vänta på att användaren klickar på esc
     else do 
@@ -185,7 +157,6 @@ gameLoop state scr = do
       -- checka ifall input är -1 (inget knappytryck) annars uppdatera beroende på knapptryck
       let state1 = if intCh == (-1) then state else handleInput intCh state 
       -- flytta spelarna
->>>>>>> 26e33e3113aceb15c7eb4e02f166e377f0e46748
       let state2 = movePlayers state1
       -- rita spelplan + spelare + väggar
       render state2 scr
@@ -195,15 +166,6 @@ gameLoop state scr = do
       gameLoop state2 scr
   where
     waitForEsc scr = do
-<<<<<<< HEAD
-      ch <- getch
-      let intCh = fromIntegral ch :: Int
-      if intCh == 27  -- ESC key
-        then do
-          render initialState scr
-          gameLoop initialState scr
-        else waitForEsc scr
-=======
       ch <- getch -- hämta input
       let intCh = fromIntegral ch :: Int -- gör om input till int
       if intCh == 27  -- ESC key 
@@ -211,7 +173,6 @@ gameLoop state scr = do
           render initialState scr -- starta om spelet
           gameLoop initialState scr
         else waitForEsc scr -- annars vänta på ESC
->>>>>>> 26e33e3113aceb15c7eb4e02f166e377f0e46748
 
 main :: IO ()
 main = do
