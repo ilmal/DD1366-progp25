@@ -12,7 +12,9 @@ countOddFreq freqs = length (filter odd freqs) -- counts how many letters that a
 countRemovedLetters :: String -> Int
 countRemovedLetters inputString = max 0 (countOddFreq letterCount - 1)
     where 
+        -- banana => ["aaa", "b", "n"] => [3, 1, 1]
         letterCount = map length (group (sort inputString))
+
 
 -- Main func to take terminal input and evaluate string
 main :: IO()
