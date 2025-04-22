@@ -11,5 +11,10 @@ REP 3 "COLOR #FF0000.
 % Eller oläslig
            COLOR
 % färgval på gång
-  #111111.
+  #111111.  
 REP 1 BACK 1.
+% En rad med kommentarer
+% dsadasdad
+
+
+

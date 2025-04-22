@@ -1,228 +1,322 @@
 import sys
-import string
+import re
+import math
+from enum import Enum
 
+class TokenType(Enum):
+    DOWN = 'DOWN'
+    LEFT = 'LEFT'
+    RIGHT = 'RIGHT'
+    NUM = 'NUM'
+    INVALID = 'INVALID'
+    FORW = 'FORW'
+    DOT = 'DOT'
+    EOF = 'EOF'
+    UP = 'UP'
+    REP = 'REP'
+    BACK = 'BACK'
+    COLOR = 'COLOR'
+    LEGITCOLOR = 'LEGITCOLOR'
+    QUOTE = 'QUOTE'
+
+# token class to hold type, data, and row number
 class Token:
-    def __init__(self, type_, value, line):
-        self.type = type_  # eg "FORW", "INT", "PERIOD", "ERROR"
-        self.value = value
-        self.line = line
+    def __init__(self, type, data=None, row=0):
+        self.type = type
+        self.data = data
+        self.row = row
 
+# Lexern
 class Lexer:
     def __init__(self, text):
-        self.text = text
-        self.pos = 0
-        self.line = 1
-        self.current_char = self.text[self.pos] if self.text else None
-
-    def error(self):
-        return Token("ERROR", None, self.line)
-
-    def advance(self):
-        # flytta till nästa tecken
-        if self.current_char == "\n":
-            self.line += 1
-        self.pos += 1
-        if self.pos >= len(self.text):
-            # om vi är vid slutet av texten
-            self.current_char = None
-        else:
-            # annars flytta till nästa tecken
-            self.current_char = self.text[self.pos]
-
-    def skip_whitespace(self):
-        # hoppa över mellanslag, tabb och radbrytning
-        while self.current_char is not None and self.current_char in " \t\r":
-            self.advance()
-
-    def skip_comment(self):
-        # kommentar '%' ignorerar resten av raden
-        while self.current_char is not None and self.current_char != "\n":
-            self.advance()
-
-    def kommando(self):
-        # identifiera kommando
-        result = ""
-        while self.current_char is not None and (self.current_char in string.ascii_letters):
-            result += self.current_char
-            self.advance()
-        # gör stor bokstäver
-        result_up = result.upper()
-        if result_up in {"FORW", "BACK", "LEFT", "RIGHT", "DOWN", "UP", "COLOR", "REP"}:
-            # om det är ett känt kommando
-            return Token(result_up, result_up, self.line)
-        else:
-            # om det inte är ett känt kommando
-            return Token("ERROR", result, self.line)
-
-    def number(self):
-        result = ""
-        # heltal
-        while self.current_char is not None and self.current_char.isdigit():
-            result += self.current_char
-            self.advance()
-        return Token("INT", result, self.line)
-
-    def hex_color(self):
-        # Förväntar sig '#' följt av exakt 6 hex-tecken
-        result = "#"
-        self.advance()  # konsumerar '#'
-        count = 0
-        while self.current_char is not None and count < 6 and (self.current_char in string.digits or self.current_char.upper() in "ABCDEF"):
-            result += self.current_char
-            self.advance()
-            count += 1
-        if count == 6:
-            return Token("HEX", result, self.line)
-        else:
-            return Token("ERROR", result, self.line)
-
-    def get_next_token(self):
-        # Hämta nästa token, None om slutet av texten
-        while self.current_char is not None:
-            if self.current_char == "\n":
-                self.advance()
-                continue
-
-            if self.current_char == "%":
-                self.skip_comment()
-                continue
-            
-            # om mellanslag, tabb eller radbrytning
-            if self.current_char in " \t\r":
-                self.skip_whitespace()
-                continue
-            
-            # om det är en bokstav
-            if self.current_char.isalpha():
-                return self.kommando()
-
-            # om det är ett heltal
-            if self.current_char.isdigit():
-                return self.number()
-
-            # om det är en punkt
-            if self.current_char == ".":
-                self.advance()
-                return Token("PERIOD", ".", self.line)
-
-            # om det är ett citattecken
-            if self.current_char == "\"":
-                self.advance()
-                return Token("QUOTE", "\"", self.line)
-
-            # om det är ett hashtagg
-            if self.current_char == "#":
-                return self.hex_color()
-
-            # Om inget matchar:
-            err = self.error()
-            self.advance()
-            return err
-
-        return Token("EOF", None, self.line)
+        self.text = text.upper()
+        self.tokens = []
+        self.current_token = 0
+        self.tokenize()
 
     def tokenize(self):
-        tokens = []
-        while True:
-            tok = self.get_next_token()
-            tokens.append(tok)
-            if tok.type == "EOF" or tok.type == "ERROR":
-                break
-        return tokens
+        # Mega regex pattern to match all tokens, if not matched, it will be invalid
+        pattern = r"""(?x)
+            (%.*\n)                         # comment with newline
+            | (\.)                          # dot
+            | (FORW)(\n|\040|\t|%.*\n)      # FORW followed by newline, space, tab, or comment
+            | (BACK)(\n|\040|\t|%.*\n)      # BACK
+            | (LEFT)(\n|\040|\t|%.*\n)      # LEFT
+            | (RIGHT)(\n|\040|\t|%.*\n)     # RIGHT
+            | (DOWN)                        # DOWN
+            | (UP)                          # UP
+            | (COLOR)(\n|\040|\t|%.*\n)     # COLOR
+            | (\#[0-9A-F]{6})               # hex color
+            | (REP)(\n|\040|\t|%.*\n)       # REP
+            | (")                           # quote
+            | ([1-9][0-9]*)(\n|\040|\t|\.|%.*\n)  # number followed by newline, space, tab, dot, or comment
+            | (\n)                          # newline
+            | (\040|\t)+                    # whitespace
+            | (%.*)                         # comment without newline (at end of file)
+        """
+
+
+        current_row = 1
+        input_pos = 0
+        for m in re.finditer(pattern, self.text):
+            # Handle invalid characters between matches
+            if m.start() > input_pos:
+                self.tokens.append(Token(TokenType.INVALID, row=current_row))
+                input_pos = m.start()
+            # Process matched groups
+            if m.group(1):  # comment
+                current_row += 1
+            elif m.group(2):  # dot
+                self.tokens.append(Token(TokenType.DOT, row=current_row))
+            elif m.group(3):  # FORW
+                self.tokens.append(Token(TokenType.FORW, row=current_row))
+                if m.group(4) == '\n' or m.group(4).startswith('%'):
+                    current_row += 1
+            elif m.group(5):  # BACK
+                self.tokens.append(Token(TokenType.BACK, row=current_row))
+                if m.group(6) == '\n' or m.group(6).startswith('%'):
+                    current_row += 1
+            elif m.group(7):  # LEFT
+                self.tokens.append(Token(TokenType.LEFT, row=current_row))
+                if m.group(8) == '\n' or m.group(8).startswith('%'):
+                    current_row += 1
+            elif m.group(9):  # RIGHT
+                self.tokens.append(Token(TokenType.RIGHT, row=current_row))
+                if m.group(10) == '\n' or m.group(10).startswith('%'):
+                    current_row += 1
+            elif m.group(11):  # DOWN
+                self.tokens.append(Token(TokenType.DOWN, row=current_row))
+            elif m.group(12):  # UP
+                self.tokens.append(Token(TokenType.UP, row=current_row))
+            elif m.group(13):  # COLOR
+                self.tokens.append(Token(TokenType.COLOR, row=current_row))
+                if m.group(14) == '\n' or m.group(14).startswith('%'):
+                    current_row += 1
+            elif m.group(15):  # hex color
+                self.tokens.append(Token(TokenType.LEGITCOLOR, m.group(15), row=current_row))
+            elif m.group(16):  # REP
+                self.tokens.append(Token(TokenType.REP, row=current_row))
+                if m.group(17) == '\n' or m.group(17).startswith('%'):
+                    current_row += 1
+            elif m.group(18):  # quote
+                self.tokens.append(Token(TokenType.QUOTE, row=current_row))
+            elif m.group(19):  # number
+                num = int(m.group(19))
+                self.tokens.append(Token(TokenType.NUM, num, row=current_row))
+                following = m.group(20)
+                if following == '.':
+                    self.tokens.append(Token(TokenType.DOT, row=current_row))
+                elif following == '\n' or following.startswith('%'):
+                    current_row += 1
+            elif m.group(21):  # newline
+                current_row += 1
+            elif m.group(22):  # whitespace
+                pass  # ignore
+            input_pos = m.end()
+        if input_pos < len(self.text):
+            self.tokens.append(Token(TokenType.INVALID, row=current_row))
+        self.tokens.append(Token(TokenType.EOF, row=current_row))
+
+    def peek_token(self):
+        # Return the next token without consuming it
+        return self.tokens[self.current_token] if self.current_token < len(self.tokens) else Token(TokenType.EOF, row=self.tokens[-1].row if self.tokens else 1)
+
+    def next_token(self):
+        token = self.peek_token()
+        self.current_token += 1
+        return token
+
+class ParseTree:
+    def evaluate(self, leonardo):
+        pass
+
+class ExprNode(ParseTree):
+    def __init__(self, instructions):
+        self.instructions = instructions
+
+    def evaluate(self, leonardo):
+        for inst in self.instructions:
+            inst.evaluate(leonardo)
+
+class MoveNode(ParseTree):
+    def __init__(self, type, units):
+        self.type = type
+        self.units = units
+
+    def evaluate(self, leonardo):
+        if self.type == TokenType.FORW:
+            leonardo.move_forwards(self.units)
+        elif self.type == TokenType.BACK:
+            leonardo.move_backwards(self.units)
+
+class TurnNode(ParseTree):
+    def __init__(self, type, degrees):
+        self.type = type
+        self.degrees = degrees
+
+    def evaluate(self, leonardo):
+        if self.type == TokenType.LEFT:
+            leonardo.turn_left(self.degrees)
+        elif self.type == TokenType.RIGHT:
+            leonardo.turn_right(self.degrees)
+
+class PenNode(ParseTree):
+    def __init__(self, type):
+        self.type = type
+
+    def evaluate(self, leonardo):
+        if self.type == TokenType.UP:
+            leonardo.move_pen_up()
+        elif self.type == TokenType.DOWN:
+            leonardo.move_pen_down()
+
+class ColorNode(ParseTree):
+    def __init__(self, color):
+        self.color = color
+
+    def evaluate(self, leonardo):
+        leonardo.change_color(self.color)
+
+class RepeatNode(ParseTree):
+    def __init__(self, repeats, subtree):
+        self.repeats = repeats
+        self.subtree = subtree
+
+    def evaluate(self, leonardo):
+        for _ in range(self.repeats):
+            self.subtree.evaluate(leonardo)
 
 class Parser:
-    def __init__(self, tokens):
-        self.tokens = tokens
-        self.pos = 0
+    def __init__(self, lexer):
+        self.lexer = lexer
+        # [print(token.type) for token in lexer.tokens]
+        self.last_row = 1  # Startvärde
 
-    def error(self, token):
-        print(f"Syntaxfel på rad {token.line}")
-        import sys
-        sys.exit(0)
+    def consume_token(self):
+        token = self.lexer.next_token()
+        self.last_row = token.row
+        return token
 
-    def current_token(self):
-        if self.pos < len(self.tokens):
-            return self.tokens[self.pos]
-        return Token("EOF", None, self.tokens[-1].line if self.tokens else 1)
-
-    def eat(self, token_type):
-        token = self.current_token()
-        if token.type == token_type:
-            self.pos += 1
-            return token
+    def expect_token(self, expected_type):
+        t = self.lexer.peek_token()
+        if t.type == expected_type:
+            return self.lexer.next_token()
+        elif t.type == TokenType.INVALID:
+            # Fallback to last valid row if needed
+            raise SyntaxError(f"Syntaxfel på rad {self.last_row}")
         else:
-            self.error(token)
+            raise SyntaxError(f"Syntaxfel på rad {self.last_row}")
+
+
 
     def parse(self):
-        commands = []
-        while self.current_token().type != "EOF":
-            if self.current_token().type == "ERROR":
-                self.error(self.current_token())
-            cmd = self.command()
-            commands.append(cmd)
-        return {"type": "Program", "commands": commands}
+        tree = self.expr()
+        t = self.lexer.next_token()
+        if t.type != TokenType.EOF:
+            raise SyntaxError(f"Syntaxfel på rad {t.row}")
+        return tree
 
-    def command(self):
-        token = self.current_token()
-        if token.type == "FORW":
-            return self.forw()
-        elif token.type == "BACK":
-            return self.back()
-        elif token.type == "LEFT":
-            return self.left()
-        elif token.type == "RIGHT":
-            return self.right()
-        elif token.type == "DOWN":
-            return self.down()
-        elif token.type == "UP":
-            return self.up()
-        elif token.type == "COLOR":
-            return self.color()
-        else:
-            self.error(token)
+    def expr(self):
+        instructions = []
+        valid_types = {TokenType.FORW, TokenType.BACK, TokenType.LEFT, TokenType.RIGHT,
+                       TokenType.DOWN, TokenType.UP, TokenType.COLOR, TokenType.REP}
+        while self.lexer.peek_token().type in valid_types:
+            instructions.append(self.instruction())
+        return ExprNode(instructions)
 
-    def forw(self):
-        tok = self.eat("FORW")
-        num = self.eat("INT")
-        self.eat("PERIOD")
-        return {"type": "Forw", "distance": int(num.value), "line": tok.line}
+    def instruction(self):
+        t = self.consume_token()
+        command_row = t.row
 
-    def back(self):
-        tok = self.eat("BACK")
-        num = self.eat("INT")
-        self.eat("PERIOD")
-        return {"type": "Back", "distance": int(num.value), "line": tok.line}
+        if t.type in {TokenType.FORW, TokenType.BACK}:
+            num_token = self.expect_token(TokenType.NUM)
+            try:
+                self.expect_token(TokenType.DOT)
+            except SyntaxError as e:
+                raise SyntaxError(e)
+            return MoveNode(t.type, num_token.data)
+        elif t.type in {TokenType.LEFT, TokenType.RIGHT}:
+            num_token = self.expect_token(TokenType.NUM)
+            try:
+                self.expect_token(TokenType.DOT)
+            except SyntaxError as e:
+                raise SyntaxError(e)
+            return TurnNode(t.type, num_token.data)
+        elif t.type in {TokenType.DOWN, TokenType.UP}:
+            try:
+                self.expect_token(TokenType.DOT)
+            except SyntaxError as e:
+                raise SyntaxError(e)
+            return PenNode(t.type)
+        elif t.type == TokenType.COLOR:
+            color_token = self.expect_token(TokenType.LEGITCOLOR)
+            try:
+                self.expect_token(TokenType.DOT)
+            except SyntaxError as e:
+                raise SyntaxError(e)
+            return ColorNode(color_token.data)
+        elif t.type == TokenType.REP:
+            repeats_token = self.expect_token(TokenType.NUM)
+            next_t = self.lexer.peek_token()
+            if next_t.type == TokenType.QUOTE:
+                quote_token = self.consume_token()  # Consume opening QUOTE
+                subtree = self.expr()
+                try:
+                    closing_quote = self.expect_token(TokenType.QUOTE)
+                except SyntaxError as e:
+                    raise SyntaxError(e)
+                return RepeatNode(repeats_token.data, subtree)
+            else:
+                subtree = self.instruction()
+                return RepeatNode(repeats_token.data, subtree)
 
-    def left(self):
-        tok = self.eat("LEFT")
-        num = self.eat("INT")
-        self.eat("PERIOD")
-        return {"type": "Left", "angle": int(num.value), "line": tok.line}
+# Leonardo class for turtle graphics state and operations
+class Leonardo:
+    def __init__(self):
+        self.x = 0.0
+        self.y = 0.0
+        self.direction = 0.0  # degrees
+        self.color = "#0000FF"
+        self.is_pen_down = False
+        self.lines = []
 
-    def right(self):
-        tok = self.eat("RIGHT")
-        num = self.eat("INT")
-        self.eat("PERIOD")
-        return {"type": "Right", "angle": int(num.value), "line": tok.line}
+    def move_pen_up(self):
+        self.is_pen_down = False
 
-    def down(self):
-        tok = self.eat("DOWN")
-        self.eat("PERIOD")
-        return {"type": "Down", "line": tok.line}
+    def move_pen_down(self):
+        self.is_pen_down = True
 
-    def up(self):
-        tok = self.eat("UP")
-        self.eat("PERIOD")
-        return {"type": "Up", "line": tok.line}
+    def turn_right(self, degrees):
+        self.direction -= degrees
 
-    def color(self):
-        tok = self.eat("COLOR")
-        hex_tok = self.eat("HEX")
-        self.eat("PERIOD")
-        return {"type": "Color", "hex_value": hex_tok.value, "line": tok.line}
+    def turn_left(self, degrees):
+        self.direction += degrees
 
+    def move_forwards(self, units):
+        prev_x = self.x
+        prev_y = self.y
+        self.move(units)
+        if self.is_pen_down:
+            # Format coordinates to match Python's four decimal places
+            self.lines.append(f"{self.color} {prev_x:.4f} {prev_y:.4f} {self.x:.4f} {self.y:.4f}")
 
+    def move_backwards(self, units):
+        prev_x = self.x
+        prev_y = self.y
+        self.move(-units)
+        if self.is_pen_down:
+            self.lines.append(f"{self.color} {prev_x:.4f} {prev_y:.4f} {self.x:.4f} {self.y:.4f}")
 
+    def move(self, units):
+        # Simplified angle calculation: directly convert degrees to radians
+        rad = math.radians(self.direction)
+        self.x += units * math.cos(rad)
+        self.y += units * math.sin(rad)
+
+    def change_color(self, color):
+        self.color = color
+
+# Main function with file input handling from your Python snippet
 def main():
     if len(sys.argv) > 1:
         for filename in sys.argv[1:]:
@@ -232,7 +326,6 @@ def main():
             except Exception as e:
                 print(f"Fel vid öppning av fil {filename}: {e}")
                 continue
-
             print(f"Resultat från {filename}:")
             process_text(text)
             print()
@@ -242,17 +335,16 @@ def main():
 
 def process_text(text):
     lexer = Lexer(text)
-    tokens = lexer.tokenize()
-    # Vid lexikala fel: skriv ut syntaxfel
-    for token in tokens:
-        if token.type == "ERROR":
-            print(f"Syntaxfel på rad {token.line}")
-            return
-
-    parser = Parser(tokens)
-    ast = parser.parse()
-
-    print(ast)
+    parser = Parser(lexer)
+    try:
+        ast = parser.parse()
+    except SyntaxError as e:
+        print(e)
+        return
+    leonardo = Leonardo()
+    ast.evaluate(leonardo)
+    for line in leonardo.lines:
+        print(line)
 
 if __name__ == '__main__':
     main()
