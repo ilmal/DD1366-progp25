@@ -33,8 +33,8 @@ initialState = GameState
   { p1 = Player "Emilie" (5,5) R -- startpos + start riktning
   , p2 = Player "Nils" (24,14) L -- startpos + start riktning
   , walls = [] -- inga väggar till att börja med
-  , boardWidth  = 30 -- spelplanens storlek
-  , boardHeight = 20
+  , boardWidth  = 50 -- spelplanens storlek
+  , boardHeight = 30
   , gameOver    = False 
   }
 
@@ -103,7 +103,7 @@ render state scr = do
   drawPlayer scr (p2 state) -- ritar ut spelare 2 
   refresh -- uppdaterar terminalen med informationen från window (uppdaterar terminalen)
 
--- Rita en ram runt spelplanen, oxå MONADER!!!!! :D
+-- Rita en ram runt spelplanen
 drawBorder :: GameState -> Window -> IO ()
 drawBorder state scr = do
   let w = boardWidth state -- hämta bredden och höjden från GameState

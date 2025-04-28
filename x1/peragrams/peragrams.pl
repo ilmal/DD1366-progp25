@@ -7,6 +7,7 @@ countLetterFreq(String, Counts) :-
     sort(SortedChars, UniqueChars), % sort the list and remove duplicates for all UNIQUE letters
     
     % Operations in line (ii) stored in line (i) and then stored in line (iii)
+    % (ii) sparar i (i) och sedan i (iii) som  en lista av (i)
     findall(
         Count, 
         (member(Letter, UniqueChars), countChars(SortedChars, Letter, Count)),
