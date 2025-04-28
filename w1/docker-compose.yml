@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  php-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    volumes:
+      - ./database:/var/www/html/database
+      - .:/var/www/html
+    environment:
+      - APACHE_DOCUMENT_ROOT=/var/www/html
+    depends_on:
+      - sqlite
+
+  sqlite:
+    image: nouchka/sqlite3:latest
+    volumes:
+      - ./database:/root/db
+    command: tail -f /dev/null
+
+volumes:
+  database:
