@@ -4,7 +4,7 @@ services:
   php-app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: DockerfilSe
     ports:
       - "8080:80"
     volumes:
@@ -12,14 +12,25 @@ services:
       - .:/var/www/html
     environment:
       - APACHE_DOCUMENT_ROOT=/var/www/html
+      - DB_HOST=postgres
+      - DB_PORT=5433
+      - DB_USER=postgres
+      - DB_PASSWORD=example
+      - DB_NAME=exampledb
     depends_on:
-      - sqlite
+      - postgres
 
-  sqlite:
-    image: nouchka/sqlite3:latest
+  postgres:
+    image: postgres:latest
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=example
+      - POSTGRES_DB=exampledb
+      # docker compose exec -it postgres psql postgres://postgres:example@postgres:5432/exampledb
     volumes:
-      - ./database:/root/db
-    command: tail -f /dev/null
+      - ./database:/var/lib/postgresql/data
 
 volumes:
   database:
