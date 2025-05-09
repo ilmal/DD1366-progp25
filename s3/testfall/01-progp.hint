@@ -1,0 +1,7 @@
+Exempelfall 1: en automat som bara accepterar strängen "progp".
+
+Rad 1: Antal tillstånd totalt + starttillståndets nr
+Rad 2: Antal accepterande tillstånd + accepterande tillstånds nr
+Rad 3: Antal övergångar
+Rad 4-8: State 1 + State 2 + Övergångstecken
+Rad 9: Gränsvärde för hur långa strängar den ska generera

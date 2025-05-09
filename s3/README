@@ -1,0 +1,17 @@
+För att testköra med den första testfilen, kompilera de tre
+Java-filerna och kör i terminal
+
+   java Main < testfall/01-progp.in
+
+Eftersom kodskelettet inte innehåller någon implementation av
+metoderna som ska skrivas kommer resultatet bara bli en tom lista,
+istället för det korrekta svaret.
+
+Underkatalogen testfall innehåller flera olika testfall.  För varje
+testfall finns:
+- en ".in"-fil som är själva testfallet,
+- en ".ans"-fil som är ett korrekt svar (i de flesta fall finns dock
+  flera korrekta svar, så er lösning behöver naturligtvis inte
+  producera exakt de listor som ".ans"-filerna innehåller).
+- en ".hint"-fil som innehåller en kort beskrivning av automaten och
+  testfallet
