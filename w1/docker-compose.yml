@@ -3,8 +3,8 @@ version: '3.8'
 services:
   php-app:
     build:
-      context: .
-      dockerfile: DockerfilSe
+          context: .
+          dockerfile: dockerfile    
     ports:
       - "8080:80"
     volumes:
@@ -14,23 +14,32 @@ services:
       - APACHE_DOCUMENT_ROOT=/var/www/html
       - DB_HOST=postgres
       - DB_PORT=5433
-      - DB_USER=postgres
-      - DB_PASSWORD=example
-      - DB_NAME=exampledb
+      - DB_USER=w1
+      - DB_PASSWORD=pass123
+      - DB_NAME=w1
     depends_on:
-      - postgres
+          postgres:
+            condition: service_healthy
 
   postgres:
     image: postgres:latest
+    expose:
+      - "5433"
     ports:
-      - "5433:5432"
+      - "5433:5433"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=example
-      - POSTGRES_DB=exampledb
-      # docker compose exec -it postgres psql postgres://postgres:example@postgres:5432/exampledb
+      - PGPORT=5433
+      - POSTGRES_USER=w1
+      - POSTGRES_PASSWORD=pass123
+      - POSTGRES_DB=w1
+      # docker compose exec -it postgres psql postgres://w1:pass123@postgres:5432/w1
     volumes:
       - ./database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U w1 -d w1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
 volumes:
   database:

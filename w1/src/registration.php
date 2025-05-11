@@ -1,119 +1,55 @@
 <?php
 session_start();
-// Kontrollera om användaren är inloggad
 if (isset($_SESSION["logged_in_user"])) {
-    // Användaren är inloggad, omdirigera till profilesidan
     header("Location: menu.php");
     exit();
 }
-
-
 ?>
 
-
-
-
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-    <title>Please sign up</title>
-    <link
-      rel="stylesheet"
-      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
-      integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
-      crossorigin="anonymous"
-    />
-    <link
-      href="https://getbootstrap.com/docs/4.0/examples/signin/signin.css"
-      rel="stylesheet"
-      crossorigin="anonymous"
-      />
-    <!--script>
-      function checkConfirm(form){
-	  const pwd=document.getElementById('password').value;
-	  const cnfrm=document.getElementById('confirm').value;
-	  if (pwd === cnfrm){
-	     alert(pwd);
-	     alert(cnfrm);
-	     return true;
-	  }
-	  //	 	    alert("no cnfrm");
-	     return false;   
-      }
-      </script-->
-  </head>
-  <body>
+<html lang="sv">
+<head>
+    <title>Registrera dig</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous" />
+    <link href="https://getbootstrap.com/docs/4.0/examples/signin/signin.css" rel="stylesheet" crossorigin="anonymous" />
+    <style>
+        .card { margin-top: 40px; }
+        .btn { margin-top: 10px; }
+    </style>
+</head>
+<body>
     <div class="container">
-      <div class="row">
-        <div class="col-12 text-center">
-          <a
-            href="index.php"
-            class="btn btn-secondary btn-sm active"
-            role="button"
-            aria-pressed="true"
-          >
-            Login
-          </a>
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="text-center mb-3">
+                            <a href="index.php" class="btn btn-secondary btn-sm">Logga in</a>
+                        </div>
+                        <h2 class="card-title text-center mb-4">Registrera dig</h2>
+                        <?php if (isset($_SESSION['message'])) { echo '<div class="alert alert-danger" role="alert">'.$_SESSION['message'].'</div>'; unset($_SESSION['message']); } ?>
+                        <form method="post" action="register.php">
+                            <div class="form-group">
+                                <label for="username">Användarnamn</label>
+                                <input type="text" id="username" name="username" class="form-control" placeholder="Användarnamn" required autofocus />
+                            </div>
+                            <div class="form-group">
+                                <label for="password">Lösenord</label>
+                                <input type="password" id="password" name="password" class="form-control" placeholder="Lösenord" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="confirm">Bekräfta lösenord</label>
+                                <input type="password" id="confirm" name="confirm" class="form-control" placeholder="Bekräfta lösenord" required />
+                            </div>
+                            <button class="btn btn-outline-primary btn-block" type="submit">Registrera</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
-      <div class="row">
-        <div class="col-12 text-center mt-4">
-          <form class="form-signin" method="post" action="register.php" onsubmit="return checkConfirm()" >
-
-	    <?php
-	    if (isset($_SESSION['message'])) {
-	        echo $_SESSION['message'];
-		
-    		unset($_SESSION['message']); // Ta bort meddelandet från sessionen så det inte visas igen
-}
-	    ?>
-	                <h2 class="form-signin-heading">Please sign up</h2>
-            <div id="error" class="alert alert-danger" role="alert"></div>
-            <div id="success" class="alert alert-success" role="alert"></div>
-            <p>
-              <label for="username" class="sr-only">Username</label>
-              <input
-                type="text"
-                id="username"
-                name="username"
-                class="form-control"
-                placeholder="Username"
-                required
-                autofocus
-              />
-            </p>
-            <p>
-              <label for="password" class="sr-only">Password</label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                class="form-control"
-                placeholder="Password"
-                required
-              />
-            </p>
-            <p>
-              <label for="confirm" class="sr-only">Confirm</label>
-              <input
-                type="password"
-                id="confirm"
-                name="confirm"
-                class="form-control"
-                placeholder="Confirm"
-                required
-              />
-            </p>
-            <button
-              class="btn btn-lg btn-outline-primary btn-block"
-              type="submit"
-            >
-              Sign up
-            </button>
-          </form>
-        </div>
-      </div>
     </div>
     <script type="module" src="../public/js/index.js"></script>
-  </body>
+</body>
 </html>

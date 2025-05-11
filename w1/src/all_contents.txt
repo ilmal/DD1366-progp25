@@ -1,0 +1,1327 @@
+This is the structure: 
+.
+├── add_to_list.php
+├── all_contents.txt
+├── confirm_purchases.php
+├── functions.php
+├── generate_shopping_list.php
+├── index.php
+├── logout.php
+├── menu.php
+├── modify_db.php
+├── process_confirm.php
+├── register.php
+├── registration.php
+├── remove_from_list.php
+├── shopping_lists.php
+└── sum.sh
+
+1 directory, 15 files
+----- ./shopping_lists.php -----
+<?php
+session_start();
+require('functions.php');
+if (!isset($_SESSION["logged_in_user"])) {
+    header("Location: index.php");
+    exit();
+}
+$user_id = $_SESSION["user_id"];
+
+$db = getDb();
+// Hämta alla inköpslistor för användaren
+$lists = getAllShoppingLists($user_id);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (isset($_POST['select_list'])) {
+        $_SESSION['selected_list_id'] = $_POST['select_list'];
+        header('Location: generate_shopping_list.php?list_id=' . $_POST['select_list']);
+        exit();
+    } elseif (isset($_POST['select_list_for_purchase'])) {
+        $_SESSION['selected_list_id'] = $_POST['select_list_for_purchase'];
+        header('Location: confirm_purchases.php?list_id=' . $_POST['select_list_for_purchase']);
+        exit();
+    } elseif (isset($_POST['new_list_name'])) {
+        $name = trim($_POST['new_list_name']);
+        $new_id = createShoppingList($user_id, $name);
+        $_SESSION['selected_list_id'] = $new_id;
+        header('Location: generate_shopping_list.php?list_id=' . $new_id);
+        exit();
+    } elseif (isset($_POST['rename_list'])) {
+        $list_id = $_POST['list_id'];
+        $new_name = trim($_POST['new_name']);
+        
+        if (!empty($new_name)) {
+            $stmt = $db->prepare("UPDATE shopping_lists SET name = :name WHERE list_id = :list_id AND user_id = :user_id");
+            $stmt->execute(['name' => $new_name, 'list_id' => $list_id, 'user_id' => $user_id]);
+            $_SESSION['message'] = "<div class='alert alert-success'>Listans namn har uppdaterats!</div>";
+        }
+        header('Location: shopping_lists.php');
+        exit();
+    } elseif (isset($_POST['delete_list'])) {
+        $list_id = $_POST['list_id'];
+        $stmt = $db->prepare("DELETE FROM shopping_lists WHERE list_id = :list_id AND user_id = :user_id");
+        $stmt->execute(['list_id' => $list_id, 'user_id' => $user_id]);
+        $_SESSION['message'] = "<div class='alert alert-warning'>Listan har tagits bort!</div>";
+        header('Location: shopping_lists.php');
+        exit();
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <title>Mina Inköpslistor</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous" />
+    <style>
+        .list-group-item {
+            position: relative;
+        }
+        .list-actions {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        .rename-form {
+            display: none;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-5">
+    <h2 class="mb-4">Mina Inköpslistor</h2>
+    
+    <?php if (isset($_SESSION['message'])): ?>
+        <?php echo $_SESSION['message']; unset($_SESSION['message']); ?>
+    <?php endif; ?>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Mina listor</h5>
+        </div>
+        <div class="card-body">
+            <?php if (empty($lists)): ?>
+                <div class="alert alert-info">Du har inga inköpslistor än. Skapa en nedan!</div>
+            <?php else: ?>
+                <ul class="list-group">
+                    <?php foreach ($lists as $list): ?>
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span><?php echo htmlspecialchars($list['display_name']); ?></span>
+                                <div>
+                                    <form method="post" class="d-inline">
+                                        <input type="hidden" name="select_list" value="<?php echo $list['list_id']; ?>">
+                                        <button type="submit" class="btn btn-info btn-sm">Redigera lista</button>
+                                    </form>
+                                    <form method="post" class="d-inline">
+                                        <input type="hidden" name="select_list_for_purchase" value="<?php echo $list['list_id']; ?>">
+                                        <button type="submit" class="btn btn-success btn-sm">Handla från denna lista</button>
+                                    </form>
+                                    <button type="button" class="btn btn-secondary btn-sm toggle-rename" data-list-id="<?php echo $list['list_id']; ?>">Byt namn</button>
+                                    <form method="post" class="d-inline" onsubmit="return confirm('Är du säker på att du vill ta bort denna lista?');">
+                                        <input type="hidden" name="list_id" value="<?php echo $list['list_id']; ?>">
+                                        <button type="submit" name="delete_list" class="btn btn-danger btn-sm">Ta bort</button>
+                                    </form>
+                                </div>
+                            </div>
+                            
+                            <!-- Rename form (hidden by default) -->
+                            <form method="post" class="rename-form" id="rename-form-<?php echo $list['list_id']; ?>">
+                                <div class="input-group">
+                                    <input type="hidden" name="list_id" value="<?php echo $list['list_id']; ?>">
+                                    <input type="text" name="new_name" class="form-control" placeholder="Nytt namn" value="<?php echo htmlspecialchars($list['name'] ?? ''); ?>" required>
+                                    <div class="input-group-append">
+                                        <button type="submit" name="rename_list" class="btn btn-outline-primary">Spara</button>
+                                        <button type="button" class="btn btn-outline-secondary cancel-rename" data-list-id="<?php echo $list['list_id']; ?>">Avbryt</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h5>Skapa ny lista</h5>
+        </div>
+        <div class="card-body">
+            <form method="post">
+                <div class="form-group">
+                    <label for="new_list_name">Namn på ny inköpslista (valfritt)</label>
+                    <input type="text" name="new_list_name" id="new_list_name" class="form-control" placeholder="Lämna tomt för autogenererat namn">
+                </div>
+                <button type="submit" class="btn btn-primary">Skapa ny lista</button>
+            </form>
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="menu.php" class="btn btn-secondary">Tillbaka till Meny</a>
+        <a href="logout.php" class="btn btn-warning float-right">Logga ut</a>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle rename form visibility
+    document.querySelectorAll('.toggle-rename').forEach(button => {
+        button.addEventListener('click', function() {
+            const listId = this.getAttribute('data-list-id');
+            const form = document.getElementById('rename-form-' + listId);
+            form.style.display = form.style.display === 'block' ? 'none' : 'block';
+        });
+    });
+    
+    // Cancel rename
+    document.querySelectorAll('.cancel-rename').forEach(button => {
+        button.addEventListener('click', function() {
+            const listId = this.getAttribute('data-list-id');
+            document.getElementById('rename-form-' + listId).style.display = 'none';
+        });
+    });
+});
+</script>
+</body>
+</html>
+
+
+----- ./register.php -----
+<?php
+session_start();
+require('functions.php');
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $username = trim($_POST["username"]);
+    $password = $_POST["password"];
+    $confirm = $_POST["confirm"];
+
+    if ($password !== $confirm) {
+        $_SESSION['message'] = "<p style='background-color:Tomato;'>Passwords do not match</p>";
+        header("Location: registration.php");
+        exit();
+    }
+
+    $db = getDb();
+    $stmt = $db->prepare("SELECT user_id FROM users WHERE username = :username");
+    $stmt->execute(['username' => $username]);
+    if ($stmt->fetch()) {
+        $_SESSION['message'] = "<p style='background-color:Tomato;'>Username already taken</p>";
+        header("Location: registration.php");
+        exit();
+    }
+
+    // Use SHA3-512 for password hashing as per instructions
+    $password_hash = hash('sha3-512', $password);
+    $stmt = $db->prepare("INSERT INTO users (username, password_hash) VALUES (:username, :password_hash)");
+    $stmt->execute(['username' => $username, 'password_hash' => $password_hash]);
+    $user_id = $db->lastInsertId();
+
+    $_SESSION["logged_in_user"] = $username;
+    $_SESSION["user_id"] = $user_id;
+    header("Location: menu.php");
+    exit();
+}
+?>
+
+----- ./all_contents.txt -----
+
+
+----- ./index.php -----
+<?php
+session_start();
+require('functions.php');
+
+if (isset($_SESSION["logged_in_user"])) {
+    header("Location: menu.php");
+    exit();
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $username = $_POST["username"];
+    $password = $_POST["password"];
+    $stored_password_hash = selectPwd($username); // This function fetches the hash from DB
+
+    // Verify password using SHA3-512, comparing the hash of the input password
+    // with the stored hash.
+    if ($stored_password_hash && hash('sha3-512', $password) === $stored_password_hash) {
+        $_SESSION["logged_in_user"] = $username;
+        $_SESSION["user_id"] = getUserId($username);
+        header("Location: menu.php");
+        exit();
+    } else {
+        $errorMessage = "<div class='alert alert-danger' role='alert'>Fel användarnamn eller lösenord</div>";
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>Logga in</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous" />
+    <link href="https://getbootstrap.com/docs/4.0/examples/signin/signin.css" rel="stylesheet" crossorigin="anonymous" />
+    <style>
+        .card { margin-top: 40px; }
+        .btn { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="text-center mb-3">
+                            <a href="registration.php" class="btn btn-secondary btn-sm">Registrera</a>
+                        </div>
+                        <h2 class="card-title text-center mb-4">Logga in</h2>
+                        <?php if (isset($errorMessage)) { echo $errorMessage; unset($errorMessage); } ?>
+                        <form method="post" action="index.php">
+                            <div class="form-group">
+                                <label for="username">Användarnamn</label>
+                                <input type="text" id="username" name="username" class="form-control" placeholder="Användarnamn" required autofocus />
+                            </div>
+                            <div class="form-group">
+                                <label for="password">Lösenord</label>
+                                <input type="password" id="password" name="password" class="form-control" placeholder="Lösenord" required />
+                            </div>
+                            <button class="btn btn-primary btn-block" type="submit">Logga in</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="../public/js/index.js"></script>
+</body>
+</html>
+
+----- ./logout.php -----
+<?php
+session_start();
+session_destroy();
+header("Location: index.php");
+exit();
+?>
+
+----- ./add_to_list.php -----
+<?php
+session_start();
+require('functions.php');
+if (!isset($_SESSION["logged_in_user"])) {
+    header("Location: index.php");
+    exit();
+}
+$user_id = $_SESSION["user_id"];
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $item_id = $_POST["item_id"];
+    $db = getDb();
+    $stmt = $db->prepare("SELECT list_id FROM shopping_lists WHERE user_id = :user_id");
+    $stmt->execute(['user_id' => $user_id]);
+    $list_id = $stmt->fetchColumn();
+    if ($list_id) {
+        $stmt = $db->prepare("INSERT INTO shopping_list_items (list_id, item_id) VALUES (:list_id, :item_id)");
+        $stmt->execute(['list_id' => $list_id, 'item_id' => $item_id]);
+    }
+    header("Location: generate_shopping_list.php?view=1");
+    exit();
+}
+?>
+
+----- ./menu.php -----
+<?php
+session_start();
+require('functions.php');
+if (!isset($_SESSION["logged_in_user"])) {
+    header("Location: index.php");
+    exit();
+}
+$loggedInUser = $_SESSION["logged_in_user"];
+?>
+
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <title>Meny</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous" />
+    <style>
+        .card { margin-top: 40px; }
+        .list-group-item { font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center mb-4">Meny</h2>
+                        <div class="alert alert-info text-center">Välkommen, <?php echo htmlspecialchars($loggedInUser); ?>!</div>
+                        <ul class="list-group mb-3">
+                            <li class="list-group-item"><a href="shopping_lists.php">Mina Inköpslistor</a></li>
+                            <li class="list-group-item"><a href="modify_db.php">Modifiera Varudatabasen</a></li>
+                            <li class="list-group-item"><a href="confirm_purchases.php">Bekräfta Inköp</a></li>
+                            <li class="list-group-item"><a href="logout.php">Logga ut</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+----- ./generate_shopping_list.php -----
+<?php
+session_start();
+require('functions.php');
+if (!isset($_SESSION["logged_in_user"])) {
+    header("Location: index.php");
+    exit();
+}
+$user_id = $_SESSION["user_id"];
+$db = getDb();
+
+// Hämta list-id från GET eller SESSION
+$list_id = isset($_GET['list_id']) ? $_GET['list_id'] : (isset($_SESSION['selected_list_id']) ? $_SESSION['selected_list_id'] : null);
+if (!$list_id) {
+    // Redirect to shopping_lists.php if no list is selected, to allow user to pick or create one.
+    header("Location: shopping_lists.php");
+    exit();
+}
+$_SESSION['selected_list_id'] = $list_id; // Ensure selected_list_id is in session for consistency
+
+// Hantera POST (lägg till/ta bort)
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (isset($_POST['add_item']) && !empty($_POST['item_id'])) {
+        $item_id = $_POST["item_id"];
+        // Check if item is already in the list to prevent duplicates (optional, depends on desired behavior)
+        $stmt_check = $db->prepare("SELECT COUNT(*) FROM shopping_list_items WHERE list_id = :list_id AND item_id = :item_id");
+        $stmt_check->execute(['list_id' => $list_id, 'item_id' => $item_id]);
+        if ($stmt_check->fetchColumn() == 0) {
+            $stmt = $db->prepare("INSERT INTO shopping_list_items (list_id, item_id) VALUES (:list_id, :item_id)");
+            $stmt->execute(['list_id' => $list_id, 'item_id' => $item_id]);
+        }
+        header("Location: generate_shopping_list.php?list_id=$list_id");
+        exit();
+    } elseif (isset($_POST['remove_item']) && !empty($_POST['list_item_id'])) {
+        $list_item_id = $_POST["list_item_id"];
+        $stmt = $db->prepare("DELETE FROM shopping_list_items WHERE list_item_id = :list_item_id AND list_id = :list_id"); // Added list_id for security
+        $stmt->execute(['list_item_id' => $list_item_id, 'list_id' => $list_id]);
+        header("Location: generate_shopping_list.php?list_id=$list_id");
+        exit();
+    } elseif (isset($_POST['save'])) {
+        header("Location: menu.php"); // "Save" here means done editing, go to menu
+        exit();
+    }
+}
+
+// Hämta lista och items
+$list = getShoppingListById($user_id, $list_id);
+$list_items = $list ? $list['items'] : [];
+$current_list_item_ids = array_column($list_items, 'item_id');
+
+// Hämta föreslagna varor
+$suggested_items_raw = getSuggestedItems($user_id);
+$suggestions_to_display = [];
+foreach ($suggested_items_raw as $suggested_item) {
+    if (!in_array($suggested_item['item_id'], $current_list_item_ids)) {
+        $suggestions_to_display[] = $suggested_item;
+    }
+}
+
+// Hämta tillgängliga varor för manuell tilläggning (inte redan i listan eller bland förslagen som visas)
+$all_available_items = getAvailableItems($user_id, $list_id); // Gets items not in current list
+$suggested_ids_to_display = array_column($suggestions_to_display, 'item_id');
+$available_for_dropdown = [];
+foreach ($all_available_items as $avail_item) {
+    if (!in_array($avail_item['item_id'], $suggested_ids_to_display)) {
+        $available_for_dropdown[] = $avail_item;
+    }
+}
+
+$list_name_obj = $db->prepare("SELECT name, created_date FROM shopping_lists WHERE list_id = :list_id AND user_id = :user_id");
+$list_name_obj->execute(['list_id' => $list_id, 'user_id' => $user_id]);
+$list_info = $list_name_obj->fetch(PDO::FETCH_ASSOC);
+$display_list_name = "";
+if ($list_info) {
+    $display_list_name = !empty($list_info['name']) ? htmlspecialchars($list_info['name']) : "Inköpslista skapad " . date('Y-m-d H:i', strtotime($list_info['created_date']));
+}
+
+?>
+
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <title>Skapa Inköpslista - <?php echo $display_list_name; ?></title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous" />
+    <style>
+        .card { margin-top: 20px; }
+        .alert { margin-top: 10px; }
+        .btn { margin-right: 5px; margin-bottom: 5px; }
+        .list-group-item { display: flex; justify-content: space-between; align-items: center; }
+        .suggestions-card { margin-top: 30px; }
+        .item-reason {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 3px;
+        }
+        .suggestion-badge {
+            background-color: #17a2b8;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="mt-4">Din Inköpslista: <?php echo $display_list_name; ?></h2>
+
+        <!-- Current List Items -->
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Nuvarande varor i listan</h5>
+                <?php if (empty($list_items)): ?>
+                    <div class="alert alert-info" role="alert">
+                        Din lista är tom. Du kan lägga till varor från förslagen nedan eller manuellt.
+                    </div>
+                <?php else: ?>
+                    <ul class="list-group mb-3">
+                        <?php foreach ($list_items as $item): ?>
+                            <li class="list-group-item">
+                                <?php echo htmlspecialchars($item['item_name']); ?>
+                                <form method="post" action="generate_shopping_list.php?list_id=<?php echo $list_id; ?>" style="display:inline;">
+                                    <input type="hidden" name="list_item_id" value="<?php echo $item['list_item_id']; ?>">
+                                    <button type="submit" name="remove_item" class="btn btn-danger btn-sm">Ta bort</button>
+                                </form>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Suggested Items -->
+        <?php if (!empty($suggestions_to_display)): ?>
+        <div class="card suggestions-card">
+            <div class="card-body">
+                <h5 class="card-title">Föreslagna varor</h5>
+                <p class="card-text">Baserat på din inköpshistorik.</p>
+                <ul class="list-group mb-3">
+                    <?php foreach ($suggestions_to_display as $item): ?>
+                        <li class="list-group-item">
+                            <?php echo htmlspecialchars($item['item_name']); ?>
+                            <?php if (isset($item['last_purchase']) && $item['last_purchase']): ?>
+                                <small class="text-muted">(Senast köpt: <?php echo date("Y-m-d", strtotime($item['last_purchase'])); ?>)</small>
+                            <?php else: ?>
+                                <small class="text-muted">(Aldrig köpt)</small>
+                            <?php endif; ?>
+                            <div class="item-reason">
+                                <?php echo htmlspecialchars($item['reason']); ?>
+                                <?php if (isset($item['days_since_last'])): ?>
+                                    <br>Det har gått <?php echo htmlspecialchars($item['days_since_last']); ?> dagar sedan senaste inköp
+                                <?php endif; ?>
+                            </div>
+                            <form method="post" action="generate_shopping_list.php?list_id=<?php echo $list_id; ?>" style="display:inline;">
+                                <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
+                                <button type="submit" name="add_item" class="btn btn-info btn-sm">Lägg till i lista</button>
+                            </form>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- Manually Add Other Items -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title">Lägg till andra varor manuellt</h5>
+                <?php if (empty($available_for_dropdown) && empty($suggestions_to_display) && empty($list_items) && !getAllItemsForUser($user_id)): // getAllItemsForUser would be a new function to check if there are any items at all for the user ?>
+                     <div class="alert alert-warning" role="alert">
+                        Det finns inga varor i din varudatabas. <a href="modify_db.php" class="alert-link">Lägg till varor i databasen först</a>.
+                    </div>
+                <?php elseif (!empty($available_for_dropdown)): ?>
+                    <form method="post" action="generate_shopping_list.php?list_id=<?php echo $list_id; ?>" class="form-inline mb-3">
+                        <select name="item_id" class="form-control mr-2">
+                            <option value="">Välj vara...</option>
+                            <?php foreach ($available_for_dropdown as $item): ?>
+                                <option value="<?php echo $item['item_id']; ?>"><?php echo htmlspecialchars($item['item_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <button type="submit" name="add_item" class="btn btn-primary">Lägg till manuellt</button>
+                    </form>
+                <?php else: ?>
+                     <div class="alert alert-info" role="alert">
+                        Alla tillgängliga varor finns antingen i din lista eller bland förslagen. Du kan <a href="modify_db.php" class="alert-link">lägga till nya typer av varor</a> i din databas.
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        
+        <hr class="mt-4 mb-3">
+        <form method="post" action="generate_shopping_list.php?list_id=<?php echo $list_id; ?>" style="display:inline-block;">
+            <button type="submit" name="save" class="btn btn-success">Klar med listan (Till Menyn)</button>
+        </form>
+        <a href="shopping_lists.php" class="btn btn-info">Byt/Skapa ny lista</a>
+        <a href="menu.php" class="btn btn-secondary">Avbryt (Till Menyn)</a>
+        <a href="logout.php" class="btn btn-warning float-right">Logga ut</a>
+
+    </div>
+</body>
+</html>
+
+----- ./process_confirm.php -----
+<?php
+session_start();
+require('functions.php');
+if (!isset($_SESSION["logged_in_user"])) {
+    header("Location: index.php");
+    exit();
+}
+$user_id = $_SESSION["user_id"];
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $db = getDb();
+    
+    // Start transaction för dataintegritet
+    $db->beginTransaction();
+    
+    try {
+        // Hantera inköpta varor
+        if (isset($_POST['purchased']) && is_array($_POST['purchased'])) {
+            foreach ($_POST['purchased'] as $list_item_id) {
+                // Hitta item_id för den aktuella list_item_id
+                $stmt = $db->prepare("
+                    SELECT item_id FROM shopping_list_items 
+                    WHERE list_item_id = :list_item_id AND user_id = :user_id
+                ");
+                $stmt->execute(['list_item_id' => $list_item_id, 'user_id' => $user_id]);
+                $item_id = $stmt->fetchColumn();
+                
+                if ($item_id) {
+                    // Registrera inköpet i purchases-tabellen
+                    recordPurchase($item_id);
+                    
+                    // Markera varan som inköpt i inköpslistan
+                    markItemAsPurchased($user_id, $list_item_id);
+                }
+            }
+        }
+        
+        // Hantera impulsköp
+        if (isset($_POST['impulse_buys']) && !empty($_POST['impulse_buys'])) {
+            $impulse_buys = array_map('trim', explode(',', $_POST['impulse_buys']));
+            
+            foreach ($impulse_buys as $item_name) {
+                if (empty($item_name)) continue;
+                
+                // Kolla om varan redan finns i databasen
+                $stmt = $db->prepare("
+                    SELECT item_id FROM items 
+                    WHERE user_id = :user_id AND item_name ILIKE :item_name
+                ");
+                $stmt->execute(['user_id' => $user_id, 'item_name' => $item_name]);
+                $item_id = $stmt->fetchColumn();
+                
+                // Om varan inte finns, lägg till den
+                if (!$item_id) {
+                    $stmt = $db->prepare("
+                        INSERT INTO items (user_id, item_name) 
+                        VALUES (:user_id, :item_name) 
+                        RETURNING item_id
+                    ");
+                    $stmt->execute(['user_id' => $user_id, 'item_name' => $item_name]);
+                    $item_id = $stmt->fetchColumn();
+                }
+                
+                // Registrera inköpet i purchases-tabellen
+                recordPurchase($item_id);
+            }
+        }
+        
+        // Commit transaction
+        $db->commit();
+        
+        $_SESSION['message'] = "Dina inköp har registrerats!";
+        header("Location: menu.php");
+        exit();
+        
+    } catch (Exception $e) {
+        // Rollback vid fel
+        $db->rollBack();
+        $_SESSION['error'] = "Ett fel uppstod: " . $e->getMessage();
+        header("Location: confirm_purchases.php");
+        exit();
+    }
+} else {
+    header("Location: confirm_purchases.php");
+    exit();
+}
+?>
+
+----- ./modify_db.php -----
+<?php
+session_start();
+require('functions.php');
+if (!isset($_SESSION["logged_in_user"])) {
+    header("Location: index.php");
+    exit();
+}
+$user_id = $_SESSION["user_id"];
+$db = getDb();
+
+// Felmeddelande för validering
+$errorMessage = '';
+$successMessage = '';
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    if (isset($_POST['add'])) {
+        $item_name = trim($_POST["item_name"]);
+        $consumption_interval = !empty($_POST["consumption_interval"]) ? 
+                                 (float)$_POST["consumption_interval"] : null;
+        
+        // Validera input
+        if (empty($item_name)) {
+            $errorMessage = "Varunamn kan inte vara tomt.";
+        } elseif ($consumption_interval !== null && $consumption_interval <= 0) {
+            $errorMessage = "Förbrukningsintervall måste vara ett positivt tal.";
+        } else {
+            // Lägg till vara i databasen
+            if (addItemToDatabase($user_id, $item_name, $consumption_interval)) {
+                $successMessage = "Varan har lagts till!";
+            } else {
+                $errorMessage = "Ett fel uppstod när varan skulle läggas till.";
+            }
+        }
+    } elseif (isset($_POST['delete'])) {
+        $item_id = $_POST["item_id"];
+        if (removeItemFromDatabase($user_id, $item_id)) {
+            $successMessage = "Varan har tagits bort!";
+        } else {
+            $errorMessage = "Ett fel uppstod när varan skulle tas bort.";
+        }
+    } elseif (isset($_POST['update_interval'])) {
+        $item_id = $_POST["item_id"];
+        $consumption_interval = !empty($_POST["consumption_interval"]) ? 
+                                 (float)$_POST["consumption_interval"] : null;
+        
+        if ($consumption_interval !== null && $consumption_interval <= 0) {
+            $errorMessage = "Förbrukningsintervall måste vara ett positivt tal.";
+        } else {
+            if (updateItemInterval($user_id, $item_id, $consumption_interval)) {
+                $successMessage = "Förbrukningsintervallet har uppdaterats!";
+            } else {
+                $errorMessage = "Ett fel uppstod när förbrukningsintervallet skulle uppdateras.";
+            }
+        }
+    }
+}
+
+// Hämta alla varor för användaren
+$items = getAllItemsForUser($user_id);
+?>
+
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <title>Modifiera Varudatabas</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous" />
+    <style>
+        .card { margin-top: 20px; }
+        .alert { margin-top: 10px; }
+        .btn { margin-right: 5px; }
+        .list-group-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1.25rem;
+        }
+        .interval-form {
+            margin-top: 10px;
+            display: none;
+        }
+        .info-icon {
+            font-size: 1rem;
+            color: #17a2b8;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        .item-details {
+            margin-top: 5px;
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 class="mt-4">Hantera dina varor</h2>
+        
+        <?php if (!empty($errorMessage)): ?>
+            <div class="alert alert-danger"><?php echo htmlspecialchars($errorMessage); ?></div>
+        <?php endif; ?>
+        
+        <?php if (!empty($successMessage)): ?>
+            <div class="alert alert-success"><?php echo htmlspecialchars($successMessage); ?></div>
+        <?php endif; ?>
+        
+        <div class="card">
+            <div class="card-header">
+                <h5>Lägg till ny vara</h5>
+            </div>
+            <div class="card-body">
+                <form method="post" class="form-row">
+                    <div class="col-md-5 mb-3">
+                        <input type="text" name="item_name" class="form-control" placeholder="Namn på vara" required>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="input-group">
+                            <input type="number" step="0.01" min="0.01" name="consumption_interval" class="form-control" placeholder="Förbrukningsintervall">
+                            <div class="input-group-append">
+                                <span class="input-group-text">dagar</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <button type="submit" name="add" class="btn btn-primary">Lägg till</button>
+                        <span class="info-icon" data-toggle="tooltip" title="Ange hur ofta varan behöver köpas (i dagar). T.ex. 7 för varor som behöver köpas varje vecka.">?</span>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>Dina varor</h5>
+            </div>
+            <div class="card-body">
+                <?php if (empty($items)): ?>
+                    <div class="alert alert-info">Du har inga varor i din databas. Lägg till varor ovan!</div>
+                <?php else: ?>
+                    <ul class="list-group">
+                        <?php foreach ($items as $item): ?>
+                            <li class="list-group-item">
+                                <div class="item-container">
+                                    <div>
+                                        <strong><?php echo htmlspecialchars($item['item_name']); ?></strong>
+                                        <div class="item-details">
+                                            <?php if ($item['consumption_interval_days']): ?>
+                                                Förbrukningsintervall: <?php echo htmlspecialchars($item['consumption_interval_days']); ?> dagar
+                                            <?php else: ?>
+                                                Inget förbrukningsintervall angivet
+                                            <?php endif; ?>
+                                            
+                                            <?php if ($item['last_purchase']): ?>
+                                                <br>Senast köpt: <?php echo htmlspecialchars($item['last_purchase']); ?>
+                                            <?php else: ?>
+                                                <br>Aldrig köpt tidigare
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <button type="button" class="btn btn-info btn-sm toggle-interval" data-item-id="<?php echo $item['item_id']; ?>">
+                                            <?php echo $item['consumption_interval_days'] ? 'Ändra intervall' : 'Ange intervall'; ?>
+                                        </button>
+                                        <form method="post" style="display:inline;">
+                                            <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
+                                            <button type="submit" name="delete" class="btn btn-danger btn-sm" onclick="return confirm('Är du säker på att du vill ta bort denna vara?')">Ta bort</button>
+                                        </form>
+                                    </div>
+                                </div>
+                                
+                                <!-- Formulär för att uppdatera förbrukningsintervall (dolt som standard) -->
+                                <form method="post" class="interval-form" id="interval-form-<?php echo $item['item_id']; ?>">
+                                    <div class="input-group">
+                                        <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
+                                        <input type="number" step="0.01" min="0.01" name="consumption_interval" class="form-control" 
+                                               value="<?php echo htmlspecialchars($item['consumption_interval_days'] ?? ''); ?>" 
+                                               placeholder="Antal dagar mellan inköp">
+                                        <div class="input-group-append">
+                                            <span class="input-group-text">dagar</span>
+                                            <button type="submit" name="update_interval" class="btn btn-outline-primary">Spara</button>
+                                            <button type="button" class="btn btn-outline-secondary cancel-update" data-item-id="<?php echo $item['item_id']; ?>">Avbryt</button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                <?php endif; ?>
+            </div>
+        </div>
+        
+        <div class="mt-4">
+            <a href="menu.php" class="btn btn-secondary">Tillbaka till menyn</a>
+            <a href="logout.php" class="btn btn-warning float-right">Logga ut</a>
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script>
+        $(function () {
+            $('[data-toggle="tooltip"]').tooltip();
+            
+            // Toggle-formulär för att uppdatera förbrukningsintervall
+            $('.toggle-interval').click(function() {
+                const itemId = $(this).data('item-id');
+                $('#interval-form-' + itemId).toggle();
+            });
+            
+            // Avbryt-knapp för att dölja formulär
+            $('.cancel-update').click(function() {
+                const itemId = $(this).data('item-id');
+                $('#interval-form-' + itemId).hide();
+            });
+        });
+    </script>
+</body>
+</html>
+
+----- ./sum.sh -----
+#!/usr/bin/env bash
+
+OUTPUT_FILE="all_contents.txt"
+
+# Remove old output file if it exists
+[ -f "$OUTPUT_FILE" ] && rm "$OUTPUT_FILE"
+
+echo "This is the structure: " >> "$OUTPUT_FILE"
+tree . >> "$OUTPUT_FILE"
+
+# Loop through all files, skipping .git and checking if they're text and readable
+find . -type f -not -path '*/.git/*' | while read -r FILE; do
+  if [ -r "$FILE" ] && file "$FILE" | grep -q text; then
+    echo "----- $FILE -----" >> "$OUTPUT_FILE"
+    cat "$FILE" >> "$OUTPUT_FILE"
+    echo -e "\n" >> "$OUTPUT_FILE"
+  fi
+done
+
+echo "All text contents have been written to $OUTPUT_FILE."
+
+----- ./registration.php -----
+<?php
+session_start();
+if (isset($_SESSION["logged_in_user"])) {
+    header("Location: menu.php");
+    exit();
+}
+?>
+
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <title>Registrera dig</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous" />
+    <link href="https://getbootstrap.com/docs/4.0/examples/signin/signin.css" rel="stylesheet" crossorigin="anonymous" />
+    <style>
+        .card { margin-top: 40px; }
+        .btn { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="text-center mb-3">
+                            <a href="index.php" class="btn btn-secondary btn-sm">Logga in</a>
+                        </div>
+                        <h2 class="card-title text-center mb-4">Registrera dig</h2>
+                        <?php if (isset($_SESSION['message'])) { echo '<div class="alert alert-danger" role="alert">'.$_SESSION['message'].'</div>'; unset($_SESSION['message']); } ?>
+                        <form method="post" action="register.php">
+                            <div class="form-group">
+                                <label for="username">Användarnamn</label>
+                                <input type="text" id="username" name="username" class="form-control" placeholder="Användarnamn" required autofocus />
+                            </div>
+                            <div class="form-group">
+                                <label for="password">Lösenord</label>
+                                <input type="password" id="password" name="password" class="form-control" placeholder="Lösenord" required />
+                            </div>
+                            <div class="form-group">
+                                <label for="confirm">Bekräfta lösenord</label>
+                                <input type="password" id="confirm" name="confirm" class="form-control" placeholder="Bekräfta lösenord" required />
+                            </div>
+                            <button class="btn btn-outline-primary btn-block" type="submit">Registrera</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="../public/js/index.js"></script>
+</body>
+</html>
+
+----- ./functions.php -----
+<?php
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+function getDb() {
+    static $db = null;
+    if ($db === null) {
+        $host = getenv('DB_HOST');
+        $port = getenv('DB_PORT');
+        $dbname = getenv('DB_NAME');
+        $username = getenv('DB_USER');
+        $password = getenv('DB_PASSWORD');
+        // Use environment variables for port and dbname in DSN
+        $dsn = "pgsql:host={$host};port={$port};dbname={$dbname}";
+        try {
+            $db = new PDO($dsn, $username, $password);
+            $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        } catch (PDOException $e) {
+            die("Connection failed: " . $e->getMessage());
+        }
+    }
+    return $db;
+}
+
+function selectPwd($username) {
+    $db = getDb();
+    $stmt = $db->prepare("SELECT password_hash FROM users WHERE username = :username");
+    $stmt->execute(['username' => $username]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    return $row ? $row['password_hash'] : null;
+}
+
+function getUserId($username) {
+    $db = getDb();
+    $stmt = $db->prepare("SELECT user_id FROM users WHERE username = :username");
+    $stmt->execute(['username' => $username]);
+    return $stmt->fetchColumn();
+}
+
+/**
+ * Beräknar och returnerar föreslagna varor baserat på förbrukningsintervall och inköpshistorik
+ */
+function getSuggestedItems($user_id) {
+    $db = getDb();
+    
+    // Hämta alla varor, deras förbrukningsintervall och senaste inköpsdatum
+    $stmt = $db->prepare("
+        SELECT i.item_id, i.item_name, i.consumption_interval_days,
+               MAX(p.purchase_date) as last_purchase
+        FROM items i
+        LEFT JOIN purchases p ON i.item_id = p.item_id
+        WHERE i.user_id = :user_id AND i.item_id NOT IN (
+            SELECT item_id FROM shopping_list_items WHERE user_id = :user_id AND purchased = FALSE
+        )
+        GROUP BY i.item_id, i.item_name, i.consumption_interval_days
+    ");
+    $stmt->execute(['user_id' => $user_id]);
+    $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $suggested = [];
+    $current_date = new DateTime();
+
+    foreach ($items as $item) {
+        // Om varan aldrig köpts tidigare
+        if ($item['last_purchase'] === null) {
+            $item['reason'] = 'Aldrig köpt tidigare';
+            $suggested[] = $item;
+        } 
+        // Om varan har ett angivet förbrukningsintervall
+        elseif ($item['consumption_interval_days'] !== null) {
+            $last_purchase = new DateTime($item['last_purchase']);
+            $interval = (float)$item['consumption_interval_days'];
+            
+            // Beräkna nästa förväntade inköpsdatum
+            $next_purchase_date = clone $last_purchase;
+            $next_purchase_date->add(new DateInterval('P' . floor($interval) . 'D'));
+            
+            // Om nästa förväntade inköpsdatum har passerats
+            if ($current_date >= $next_purchase_date) {
+                $days_since_last = $current_date->diff($last_purchase)->days;
+                $item['days_since_last'] = $days_since_last;
+                $item['reason'] = 'Förbrukningsintervall (' . $interval . ' dagar) har passerats';
+                $suggested[] = $item;
+            }
+        }
+        // För varor utan angivet förbrukningsintervall men med inköpshistorik
+        else {
+            $last_purchase = new DateTime($item['last_purchase']);
+            $days_since_last = $current_date->diff($last_purchase)->days;
+            
+            // Om det gått mer än 30 dagar sedan senaste inköp
+            if ($days_since_last >= 30) {
+                $item['days_since_last'] = $days_since_last;
+                $item['reason'] = 'Inget förbrukningsintervall angivet, men det har gått ' . $days_since_last . ' dagar sedan senaste inköp';
+                $suggested[] = $item;
+            }
+        }
+    }
+    
+    return $suggested;
+}
+
+/**
+ * Hämtar alla varor i användarens inköpslista
+ */
+function getShoppingListItems($user_id) {
+    $db = getDb();
+    $stmt = $db->prepare("
+        SELECT sli.list_item_id, i.item_id, i.item_name
+        FROM shopping_list_items sli
+        JOIN items i ON sli.item_id = i.item_id
+        WHERE sli.user_id = :user_id AND sli.purchased = FALSE
+    ");
+    $stmt->execute(['user_id' => $user_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Hämtar alla varor som kan läggas till i inköpslistan
+ */
+function getAvailableItems($user_id) {
+    $db = getDb();
+    $stmt = $db->prepare("
+        SELECT i.item_id, i.item_name, i.consumption_interval_days
+        FROM items i
+        WHERE i.user_id = :user_id AND i.item_id NOT IN (
+            SELECT item_id FROM shopping_list_items WHERE user_id = :user_id AND purchased = FALSE
+        )
+    ");
+    $stmt->execute(['user_id' => $user_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Lägger till en vara i inköpslistan
+ */
+function addItemToShoppingList($user_id, $item_id) {
+    $db = getDb();
+    $stmt = $db->prepare("
+        INSERT INTO shopping_list_items (user_id, item_id)
+        VALUES (:user_id, :item_id)
+    ");
+    return $stmt->execute(['user_id' => $user_id, 'item_id' => $item_id]);
+}
+
+/**
+ * Tar bort en vara från inköpslistan
+ */
+function removeItemFromShoppingList($user_id, $list_item_id) {
+    $db = getDb();
+    $stmt = $db->prepare("
+        DELETE FROM shopping_list_items 
+        WHERE list_item_id = :list_item_id AND user_id = :user_id
+    ");
+    return $stmt->execute(['list_item_id' => $list_item_id, 'user_id' => $user_id]);
+}
+
+/**
+ * Lägger till en ny vara i varudatabasen
+ */
+function addItemToDatabase($user_id, $item_name, $consumption_interval_days = null) {
+    $db = getDb();
+    $stmt = $db->prepare("
+        INSERT INTO items (user_id, item_name, consumption_interval_days)
+        VALUES (:user_id, :item_name, :consumption_interval_days)
+    ");
+    return $stmt->execute([
+        'user_id' => $user_id, 
+        'item_name' => $item_name,
+        'consumption_interval_days' => $consumption_interval_days
+    ]);
+}
+
+/**
+ * Tar bort en vara från databasen
+ */
+function removeItemFromDatabase($user_id, $item_id) {
+    $db = getDb();
+    $stmt = $db->prepare("
+        DELETE FROM items
+        WHERE item_id = :item_id AND user_id = :user_id
+    ");
+    return $stmt->execute(['item_id' => $item_id, 'user_id' => $user_id]);
+}
+
+/**
+ * Uppdaterar förbrukningsintervallet för en vara
+ */
+function updateItemInterval($user_id, $item_id, $consumption_interval_days) {
+    $db = getDb();
+    $stmt = $db->prepare("
+        UPDATE items
+        SET consumption_interval_days = :consumption_interval_days
+        WHERE item_id = :item_id AND user_id = :user_id
+    ");
+    return $stmt->execute([
+        'item_id' => $item_id,
+        'user_id' => $user_id,
+        'consumption_interval_days' => $consumption_interval_days
+    ]);
+}
+
+/**
+ * Hämtar alla varor som finns i användarens databas
+ */
+function getAllItemsForUser($user_id) {
+    $db = getDb();
+    $stmt = $db->prepare("
+        SELECT i.item_id, i.item_name, i.consumption_interval_days, 
+               MAX(p.purchase_date) as last_purchase
+        FROM items i
+        LEFT JOIN purchases p ON i.item_id = p.item_id
+        WHERE i.user_id = :user_id
+        GROUP BY i.item_id, i.item_name, i.consumption_interval_days
+        ORDER BY i.item_name
+    ");
+    $stmt->execute(['user_id' => $user_id]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
+ * Registrerar inköp av en vara
+ */
+function recordPurchase($item_id) {
+    $db = getDb();
+    $stmt = $db->prepare("
+        INSERT INTO purchases (item_id, purchase_date)
+        VALUES (:item_id, CURRENT_DATE)
+    ");
+    return $stmt->execute(['item_id' => $item_id]);
+}
+
+/**
+ * Markerar en vara som inköpt i inköpslistan
+ */
+function markItemAsPurchased($user_id, $list_item_id) {
+    $db = getDb();
+    $stmt = $db->prepare("
+        UPDATE shopping_list_items
+        SET purchased = TRUE
+        WHERE list_item_id = :list_item_id AND user_id = :user_id
+    ");
+    return $stmt->execute(['list_item_id' => $list_item_id, 'user_id' => $user_id]);
+}
+?>
+
+----- ./confirm_purchases.php -----
+<?php
+session_start();
+require('functions.php');
+if (!isset($_SESSION["logged_in_user"])) {
+    header("Location: index.php");
+    exit();
+}
+$user_id = $_SESSION["user_id"];
+
+// Hämta användarens inköpslista
+$shopping_list = getShoppingListItems($user_id);
+?>
+
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <title>Bekräfta Inköp</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous" />
+    <style>
+        .card { margin-top: 40px; }
+        .list-group-item { display: flex; align-items: center; }
+        .form-check-input { margin-right: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center mb-4">Bekräfta Inköp</h2>
+                        
+                        <?php if (empty($shopping_list)): ?>
+                            <div class="alert alert-info text-center" role="alert">
+                                Din inköpslista är tom. <a href="generate_shopping_list.php" class="alert-link">Lägg till varor i inköpslistan</a> först.
+                            </div>
+                        <?php else: ?>
+                            <form method="post" action="process_confirm.php">
+                                <div class="mb-4">
+                                    <h5>Markera varor som du har köpt:</h5>
+                                    <ul class="list-group mb-3">
+                                        <?php foreach ($shopping_list as $item): ?>
+                                            <li class="list-group-item">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" name="purchased[]" value="<?php echo $item['list_item_id']; ?>" id="item-<?php echo $item['list_item_id']; ?>">
+                                                    <label class="form-check-label" for="item-<?php echo $item['list_item_id']; ?>">
+                                                        <?php echo htmlspecialchars($item['item_name']); ?>
+                                                    </label>
+                                                </div>
+                                            </li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                </div>
+
+                                <div class="form-group">
+                                    <h5>Impulsköp (varor som inte fanns på listan):</h5>
+                                    <input type="text" name="impulse_buys" class="form-control" placeholder="Ange kommaseparerade varor, t.ex. Choklad, Tidning, Batterier">
+                                    <small class="form-text text-muted">Dessa varor kommer att läggas till i din varudatabas om de inte redan finns där.</small>
+                                </div>
+
+                                <div class="form-group text-center">
+                                    <button type="submit" class="btn btn-success btn-lg">Bekräfta inköp</button>
+                                </div>
+                            </form>
+                        <?php endif; ?>
+                        
+                        <hr class="mt-4 mb-3">
+                        <div class="text-center">
+                            <a href="generate_shopping_list.php" class="btn btn-info">Redigera inköpslista</a>
+                            <a href="menu.php" class="btn btn-secondary">Tillbaka till menyn</a>
+                            <a href="logout.php" class="btn btn-warning">Logga ut</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+----- ./remove_from_list.php -----
+<?php
+session_start();
+require('functions.php');
+if (!isset($_SESSION["logged_in_user"])) {
+    header("Location: index.php");
+    exit();
+}
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $list_item_id = $_POST["list_item_id"];
+    $db = getDb();
+    $stmt = $db->prepare("DELETE FROM shopping_list_items WHERE list_item_id = :list_item_id");
+    $stmt->execute(['list_item_id' => $list_item_id]);
+    header("Location: generate_shopping_list.php?view=1");
+    exit();
+}
+?>
+

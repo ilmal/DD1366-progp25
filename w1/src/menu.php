@@ -1,42 +1,43 @@
 <?php
 session_start();
+require('functions.php');
 if (!isset($_SESSION["logged_in_user"])) {
-    header("Location: index.php"); 
+    header("Location: index.php");
     exit();
 }
-
-// Om användaren är inloggad, hämta användarnamnet från sessionen
 $loggedInUser = $_SESSION["logged_in_user"];
 ?>
 
-
-
 <!DOCTYPE html>
-<html lang="en">
-  <head>
-       <title>Menu page</title>
-    <link
-      rel="stylesheet"
-      href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
-      integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T"
-      crossorigin="anonymous"
-    />
-    <link
-      href="https://getbootstrap.com/docs/4.0/examples/signin/signin.css"
-      rel="stylesheet"
-      crossorigin="anonymous"
-    />
-  </head>
-  <body>
-
-<a href="logout.php">logga ut</a><br>
-<h1> Menu</h1>
-Välj vad du vill göra:<br>
-<ol type="1">
-  <li><a href="generate_shopping_list.php">skapa inköpslista</a>
-  </li>
-  <li><a href="modify_db.php">Modifiera databasen med varudatabasen</a></li>
-  <li>...och även de andra valen man ska kunna göra enligt laborationsbeskrivning</li>
-</ol>
-  </body>
+<html lang="sv">
+<head>
+    <title>Meny</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" crossorigin="anonymous" />
+    <style>
+        .card { margin-top: 40px; }
+        .list-group-item { font-size: 1.1rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h2 class="card-title text-center mb-4">Meny</h2>
+                        <div class="alert alert-info text-center">Välkommen, <?php echo htmlspecialchars($loggedInUser); ?>!</div>
+                        <ul class="list-group mb-3">
+                            <li class="list-group-item"><a href="shopping_lists.php">Mina Inköpslistor</a></li>
+                            <li class="list-group-item"><a href="modify_db.php">Modifiera Varudatabasen</a></li>
+                            <li class="list-group-item"><a href="confirm_purchases.php">Bekräfta Inköp</a></li>
+                            <li class="list-group-item"><a href="logout.php">Logga ut</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
 </html>
