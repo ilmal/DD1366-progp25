@@ -162,13 +162,17 @@ class ExprNode(ParseTree):
         for inst in self.instructions:
             inst.evaluate(Leona)
 
-    def pretty_print(self, indent=0):
-        result = "  " * indent + "ExprNode:\n"
-        for inst in self.instructions:
-            result += inst.pretty_print(indent + 1)
+    def pretty_print(self, indent=0, prefix=""):
+        result = prefix + "ExprNode\n"
+        for i, inst in enumerate(self.instructions):
+            is_last = i == len(self.instructions) - 1
+            new_prefix = prefix + ("└── " if is_last else "├── ")
+            result += inst.pretty_print(indent + 1, new_prefix)
+            if not is_last:
+                result += prefix + "│   " + "\n"
         return result
 
-# alla övriga är löv
+# Löv
 class MoveNode(ParseTree):
     def __init__(self, type, units):
         self.type = type
@@ -180,8 +184,8 @@ class MoveNode(ParseTree):
         elif self.type == TokenType.BACK:
             Leona.move_backwards(self.units)
 
-    def pretty_print(self, indent=0):
-        return "  " * indent + f"MoveNode({self.type.value}, units={self.units})\n"
+    def pretty_print(self, indent=0, prefix=""):
+        return prefix + f"MoveNode({self.type.value}, units={self.units})\n"
 
 class TurnNode(ParseTree):
     def __init__(self, type, degrees):
@@ -194,8 +198,8 @@ class TurnNode(ParseTree):
         elif self.type == TokenType.RIGHT:
             Leona.turn_right(self.degrees)
 
-    def pretty_print(self, indent=0):
-        return "  " * indent + f"TurnNode({self.type.value}, degrees={self.degrees})\n"
+    def pretty_print(self, indent=0, prefix=""):
+        return prefix + f"TurnNode({self.type.value}, degrees={self.degrees})\n"
 
 class PenNode(ParseTree):
     def __init__(self, type):
@@ -207,8 +211,8 @@ class PenNode(ParseTree):
         elif self.type == TokenType.DOWN:
             Leona.move_pen_down()
 
-    def pretty_print(self, indent=0):
-        return "  " * indent + f"PenNode({self.type.value})\n"
+    def pretty_print(self, indent=0, prefix=""):
+        return prefix + f"PenNode({self.type.value})\n"
 
 class ColorNode(ParseTree):
     def __init__(self, color):
@@ -217,22 +221,22 @@ class ColorNode(ParseTree):
     def evaluate(self, Leona):
         Leona.change_color(self.color)
 
-    def pretty_print(self, indent=0):
-        return "  " * indent + f"ColorNode({self.color})\n"
+    def pretty_print(self, indent=0, prefix=""):
+        return prefix + f"ColorNode({self.color})\n"
 
 class RepeatNode(ParseTree):
     def __init__(self, repeats, subtree):
         self.repeats = repeats
         self.subtree = subtree
 
-    # gör så många loopar som anges i rep-kommandot (self.repeats)
     def evaluate(self, Leona):
         for _ in range(self.repeats):
-            self.subtree.evaluate(Leona) # kallar evaluate per loop
+            self.subtree.evaluate(Leona)
 
-    def pretty_print(self, indent=0):
-        result = "  " * indent + f"RepeatNode(repeats={self.repeats}):\n"
-        result += self.subtree.pretty_print(indent + 1)
+    def pretty_print(self, indent=0, prefix=""):
+        result = prefix + f"RepeatNode(repeats={self.repeats})\n"
+        new_prefix = prefix + "│   "
+        result += self.subtree.pretty_print(indent + 1, new_prefix)
         return result
 
 # parser - kollar att grammatiken är korrekt

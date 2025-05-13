@@ -5,47 +5,10 @@ if (!isset($_SESSION["logged_in_user"])) {
     header("Location: index.php");
     exit();
 }
-$user_id = $_SESSION["user_id"];
 
-$db = getDb();
-// Hämta alla inköpslistor för användaren
-$lists = getAllShoppingLists($user_id);
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (isset($_POST['select_list'])) {
-        $_SESSION['selected_list_id'] = $_POST['select_list'];
-        header('Location: generate_shopping_list.php?list_id=' . $_POST['select_list']);
-        exit();
-    } elseif (isset($_POST['select_list_for_purchase'])) {
-        $_SESSION['selected_list_id'] = $_POST['select_list_for_purchase'];
-        header('Location: confirm_purchases.php?list_id=' . $_POST['select_list_for_purchase']);
-        exit();
-    } elseif (isset($_POST['new_list_name'])) {
-        $name = trim($_POST['new_list_name']);
-        $new_id = createShoppingList($user_id, $name);
-        $_SESSION['selected_list_id'] = $new_id;
-        header('Location: generate_shopping_list.php?list_id=' . $new_id);
-        exit();
-    } elseif (isset($_POST['rename_list'])) {
-        $list_id = $_POST['list_id'];
-        $new_name = trim($_POST['new_name']);
-        
-        if (!empty($new_name)) {
-            $stmt = $db->prepare("UPDATE shopping_lists SET name = :name WHERE list_id = :list_id AND user_id = :user_id");
-            $stmt->execute(['name' => $new_name, 'list_id' => $list_id, 'user_id' => $user_id]);
-            $_SESSION['message'] = "<div class='alert alert-success'>Listans namn har uppdaterats!</div>";
-        }
-        header('Location: shopping_lists.php');
-        exit();
-    } elseif (isset($_POST['delete_list'])) {
-        $list_id = $_POST['list_id'];
-        $stmt = $db->prepare("DELETE FROM shopping_lists WHERE list_id = :list_id AND user_id = :user_id");
-        $stmt->execute(['list_id' => $list_id, 'user_id' => $user_id]);
-        $_SESSION['message'] = "<div class='alert alert-warning'>Listan har tagits bort!</div>";
-        header('Location: shopping_lists.php');
-        exit();
-    }
-}
+// Redirect to the main shopping list page since multiple lists are no longer supported
+header("Location: index.php");
+exit();
 ?>
 <!DOCTYPE html>
 <html lang="sv">

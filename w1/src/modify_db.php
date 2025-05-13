@@ -41,6 +41,20 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         } else {
             $errorMessage = "Ett fel uppstod när inköpet skulle registreras.";
         }
+    } elseif (isset($_POST['discontinue'])) {
+        $item_id = $_POST["item_id"];
+        if (markItemAsDiscontinued($user_id, $item_id)) {
+            $successMessage = "Varan har markerats som utgången!";
+        } else {
+            $errorMessage = "Ett fel uppstod när varan skulle markeras som utgången.";
+        }
+    } elseif (isset($_POST['restore'])) {
+        $item_id = $_POST["item_id"];
+        if (restoreDiscontinuedItem($user_id, $item_id)) {
+            $successMessage = "Varan har återställts!";
+        } else {
+            $errorMessage = "Ett fel uppstod när varan skulle återställas.";
+        }
     }
 }
 
@@ -137,6 +151,9 @@ $items = getAllItemsForUser($user_id);
                                 <div class="item-container">
                                     <div>
                                         <strong><?php echo htmlspecialchars($item['item_name']); ?></strong>
+                                        <?php if ($item['discontinued']): ?>
+                                            <span class="badge badge-danger ml-2">Utgången</span>
+                                        <?php endif; ?>
                                         <div class="item-details">
                                             <?php if ($item['avg_interval']): ?>
                                                 <span class="badge badge-interval">Beräknat förbrukningsintervall: <?php echo htmlspecialchars($item['avg_interval']); ?> dagar</span>
@@ -179,6 +196,17 @@ $items = getAllItemsForUser($user_id);
                                             <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
                                             <button type="submit" name="delete" class="btn btn-danger btn-sm" onclick="return confirm('Är du säker på att du vill ta bort denna vara?')">Ta bort</button>
                                         </form>
+                                        <?php if (!$item['discontinued']): ?>
+                                            <form method="post" style="display:inline;">
+                                                <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
+                                                <button type="submit" name="discontinue" class="btn btn-warning btn-sm">Markera som utgången</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <form method="post" style="display:inline;">
+                                                <input type="hidden" name="item_id" value="<?php echo $item['item_id']; ?>">
+                                                <button type="submit" name="restore" class="btn btn-info btn-sm">Återställ</button>
+                                            </form>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                             </li>

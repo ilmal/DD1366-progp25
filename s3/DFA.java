@@ -64,6 +64,7 @@ public class DFA {
          * save time */
         computeReachableAcceptingStates(canReachAccepting);
 
+
         // Handle the case where the start state is accepting (empty string)
         if (acceptingStates.contains(dfaStartState)) {
             acceptedStrings.add(""); // add empty string if startstate is an accepting state
