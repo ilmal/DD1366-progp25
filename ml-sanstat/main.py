@@ -10,9 +10,9 @@ np.random.seed(42)
 
 # Parameters for data generation
 w_true = np.array([-1.2, 0.9])  # faktiska värden för [w0, w1]
-sigma2_values = [0.1, 0.4, 0.8]  # Noise variances
-alpha_values = [0.5, 2.0, 4.0]   # Prior precisions
-n_train_samples = [3, 10, 20, 100]  # Training subset sizes
+sigma2_values = [0.4]  # Noise variances
+alpha_values = [2.0]   # Prior precisions
+n_train_samples = [25]  # Training subset sizes
 sigma2_default = 0.2  # default noise variance
 alpha_default = 2.0   # default prior precision
 beta_default = 1 / sigma2_default  # precision för likelihood
@@ -100,7 +100,6 @@ def plot_distribution(dist, w0_range, w1_range, title, ax):
 
 # Main loop for different configurations
 for sigma2 in sigma2_values:
-    continue
     beta = 1 / sigma2
     # Regenerate data with current sigma2
     t_train = w_true[0] + w_true[1] * x_train + np.random.normal(0, np.sqrt(sigma2), x_train.shape)
@@ -138,7 +137,7 @@ for sigma2 in sigma2_values:
             
             # Save distribution plots
             plt.tight_layout()
-            plt.savefig(f"plots/distributions_sigma2_{sigma2}_alpha_{alpha}_n_{n}.png")
+            # plt.savefig(f"plots/distributions_sigma2_{sigma2}_alpha_{alpha}_n_{n}.png")
             plt.close(fig)
             
             # Task 1.4: Sample models from posterior
@@ -170,14 +169,15 @@ for sigma2 in sigma2_values:
             
             # Save model plot
             plt.tight_layout()
-            plt.savefig(f"plots/models_sigma2_{sigma2}_alpha_{alpha}_n_{n}.png")
+            # plt.savefig(f"plots/models_sigma2_{sigma2}_alpha_{alpha}_n_{n}.png")
             plt.close(fig2)
+
+            print(f"Predicted weights (Bayesian posterior mean) for n={n}, alpha={alpha}, sigma2={sigma2}: {m_N}")
+            print(f"Predicted weights (Maximum Likelihood) for n={n}, alpha={alpha}, sigma2={sigma2}: {w_ml}")
         
-# Task 1.7 and 1.8: Analysis
-print("Task 1.7 Analysis:")
-print("Effect of noise (σ²): Higher noise increases the spread of the posterior and predictive uncertainty.")
-print("Effect of prior precision (α): Higher α tightens the prior, influencing the posterior to stay closer to zero.")
-print("Effect of training samples (n): More samples sharpen the posterior, reducing uncertainty in predictions.")
-print("\nTask 1.8 Comparison:")
-print("Maximum Likelihood: Provides point estimates, ignoring uncertainty, sensitive to noise and sample size.")
-print("Bayesian: Models uncertainty via posterior, more robust to noise, incorporates prior knowledge.")
+
+
+
+def compute_likelihood(x, t, w, beta):
+    mu = w[0] + w[1] * x
+    return np.prod([np.exp(-0.5 * beta * (t[i] - mu[i])**2) / np.sqrt(2 * np.pi / beta) for i in range(len(x))])
