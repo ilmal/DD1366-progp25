@@ -143,129 +143,65 @@ class Lexer:
         self.current_token += 1
         return token # returnera den konsumerade tokenen nom nom 
 
-# parse tree - basklass
-class ParseTree:
-    def evaluate(self, Leona):
-        pass
-
-    def pretty_print(self, indent=0):
-        return "ParseTree"
-
-# importerar ParseTree
-# klass som innehåller alla instruktioner/noder i trädet
-# en gren i trädet
-class ExprNode(ParseTree):
-    def __init__(self, instructions):
-        self.instructions = instructions
-
-    def evaluate(self, Leona):
-        for inst in self.instructions:
-            inst.evaluate(Leona)
-
-    def pretty_print(self, indent=0, prefix=""):
-        result = prefix + "ExprNode\n"
-        for i, inst in enumerate(self.instructions):
-            is_last = i == len(self.instructions) - 1
-            new_prefix = prefix + ("└── " if is_last else "├── ")
-            result += inst.pretty_print(indent + 1, new_prefix)
-            if not is_last:
-                result += prefix + "│   " + "\n"
-        return result
-
-# Löv
-class MoveNode(ParseTree):
-    def __init__(self, type, units):
+# Node class for the parse tree
+class Node:
+    def __init__(self, type, value=None, children=None):
         self.type = type
-        self.units = units
+        self.value = value
+        self.children = children if children is not None else []
 
-    def evaluate(self, Leona):
-        if self.type == TokenType.FORW:
-            Leona.move_forwards(self.units)
-        elif self.type == TokenType.BACK:
-            Leona.move_backwards(self.units)
+    def pretty_print(self, level=0):
+        indent = "  " * level
+        if self.value:
+            print(f"{indent}{self.type}: {self.value}")
+        else:
+            print(f"{indent}{self.type}")
+        for child in self.children:
+            child.pretty_print(level + 1)
 
-    def pretty_print(self, indent=0, prefix=""):
-        return prefix + f"MoveNode({self.type.value}, units={self.units})\n"
-
-class TurnNode(ParseTree):
-    def __init__(self, type, degrees):
-        self.type = type
-        self.degrees = degrees
-
-    def evaluate(self, Leona):
-        if self.type == TokenType.LEFT:
-            Leona.turn_left(self.degrees)
-        elif self.type == TokenType.RIGHT:
-            Leona.turn_right(self.degrees)
-
-    def pretty_print(self, indent=0, prefix=""):
-        return prefix + f"TurnNode({self.type.value}, degrees={self.degrees})\n"
-
-class PenNode(ParseTree):
-    def __init__(self, type):
-        self.type = type
-
-    def evaluate(self, Leona):
-        if self.type == TokenType.UP:
-            Leona.move_pen_up()
-        elif self.type == TokenType.DOWN:
-            Leona.move_pen_down()
-
-    def pretty_print(self, indent=0, prefix=""):
-        return prefix + f"PenNode({self.type.value})\n"
-
-class ColorNode(ParseTree):
-    def __init__(self, color):
-        self.color = color
-
-    def evaluate(self, Leona):
-        Leona.change_color(self.color)
-
-    def pretty_print(self, indent=0, prefix=""):
-        return prefix + f"ColorNode({self.color})\n"
-
-class RepeatNode(ParseTree):
-    def __init__(self, repeats, subtree):
-        self.repeats = repeats
-        self.subtree = subtree
-
-    def evaluate(self, Leona):
-        for _ in range(self.repeats):
-            self.subtree.evaluate(Leona)
-
-    def pretty_print(self, indent=0, prefix=""):
-        result = prefix + f"RepeatNode(repeats={self.repeats})\n"
-        new_prefix = prefix + "│   "
-        result += self.subtree.pretty_print(indent + 1, new_prefix)
-        return result
+    def evaluate(self, leona):
+        if self.type == "Instruction":
+            parts = self.value.split()
+            command = parts[0]
+            if command == "FORW":
+                leona.move_forwards(int(parts[1]))
+            elif command == "BACK":
+                leona.move_backwards(int(parts[1]))
+            elif command == "LEFT":
+                leona.turn_left(int(parts[1]))
+            elif command == "RIGHT":
+                leona.turn_right(int(parts[1]))
+            elif command == "DOWN":
+                leona.move_pen_down()
+            elif command == "UP":
+                leona.move_pen_up()
+            elif command == "COLOR":
+                leona.change_color(parts[1])
+            elif command == "REP":
+                repeats = int(parts[1])
+                for _ in range(repeats):
+                    self.children[0].evaluate(leona)
+        elif self.type == "Rep":
+            self.children[0].evaluate(leona)
+        elif self.type == "Expr":
+            for child in self.children:
+                child.evaluate(leona)
 
 # parser - kollar att grammatiken är korrekt
 class Parser:
     def __init__(self, lexer):
         self.lexer = lexer
         self.last_row = 1  # Startvärde
+        self.current_token = self.lexer.peek_token()
 
-    def consume_token(self):
+    def consume(self, expected_type):
         # nom nom token
         token = self.lexer.next_token()
         self.last_row = token.row
+        if token.type != expected_type:
+            raise SyntaxError(f"Syntaxfel på rad {token.row}: Expected {expected_type}, got {token.type}")
+        self.current_token = self.lexer.peek_token()
         return token
-
-    # expect_token checkar om nästa token är av rätt typ
-    def expect_token(self, expected_type):
-        # tjuvkolla lite utan å käka upp token
-        t = self.lexer.peek_token()
-        # om den är av rätt typ så käka upp den, nom nom
-        if t.type == expected_type:
-            return self.lexer.next_token()
-        # om den inte är av rätt typ så har något gått snett
-        elif t.type == TokenType.INVALID:
-            # Fallback to last valid row if needed
-            raise SyntaxError(f"Syntaxfel på rad {t.row}")
-        else:
-            error_row = self.last_row if t.type == TokenType.EOF else t.row
-            raise SyntaxError(f"Syntaxfel på rad {error_row}")
-
 
     def parse(self):
         # skapa träd från lexer 
@@ -276,90 +212,51 @@ class Parser:
         return tree
 
     def expr(self):
-        instructions = []
-        valid_types = {TokenType.FORW, TokenType.BACK, TokenType.LEFT, TokenType.RIGHT,
-                       TokenType.DOWN, TokenType.UP, TokenType.COLOR, TokenType.REP}
-        # loopar tills vi når EOF eller en ogiltig token
-        while self.lexer.peek_token().type in valid_types:
-            instructions.append(self.instruction())
-        return ExprNode(instructions)
+        # <expr> ::= <instruction> <expr> | ε
+        if self.current_token.type in {TokenType.FORW, TokenType.BACK, TokenType.LEFT, 
+                                       TokenType.RIGHT, TokenType.DOWN, TokenType.UP, 
+                                       TokenType.COLOR, TokenType.REP}:
+            instr_node = self.instruction()
+            expr_node = self.expr()
+            return Node("Expr", children=[instr_node, expr_node])
+        return Node("Expr")
 
     def instruction(self):
-        # hoppa till nästa token, nom nom
-        t = self.consume_token()
-        command_row = t.row
+        # <instruction> ::= FORW NUM DOT | BACK NUM DOT | LEFT NUM DOT | RIGHT NUM DOT
+        #                 | DOWN DOT | UP DOT | COLOR HEX DOT | REP NUM <rep>
+        token = self.current_token
+        command_row = token.row
 
-        # mycket basic saker, typ vill ha siffra efter FORW eller BACK sedan punkt mm. Basic stuff u know
-        if t.type in {TokenType.FORW, TokenType.BACK}:
-            num_token = self.expect_token(TokenType.NUM)
-            try:
-                self.expect_token(TokenType.DOT)
-            except SyntaxError as e:
-                raise SyntaxError(e)
-            return MoveNode(t.type, num_token.data)
-        elif t.type in {TokenType.LEFT, TokenType.RIGHT}:
-            num_token = self.expect_token(TokenType.NUM)
-            try:
-                self.expect_token(TokenType.DOT)
-            except SyntaxError as e:
-                raise SyntaxError(e)
-            return TurnNode(t.type, num_token.data)
-        elif t.type in {TokenType.DOWN, TokenType.UP}:
-            try:
-                self.expect_token(TokenType.DOT)
-            except SyntaxError as e:
-                raise SyntaxError(e)
-            return PenNode(t.type)
-        elif t.type == TokenType.COLOR: 
-            color_token = self.expect_token(TokenType.HEX)
-            try:
-                self.expect_token(TokenType.DOT)
-            except SyntaxError as e:
-                raise SyntaxError(e)
-            return ColorNode(color_token.data)
-        elif t.type == TokenType.REP:
-            repeats_token = self.expect_token(TokenType.NUM)
-            
-            if self.check_quote(repeats_token.row):
-                self.consume_token()            # consume the opening QUOTE
-                
-                # checka att quote följs direkt av commando
-                if self.lexer.peek_token().type not in {TokenType.FORW, TokenType.BACK,
-                                                    TokenType.LEFT, TokenType.RIGHT, 
-                                                    TokenType.DOWN, TokenType.UP, TokenType.COLOR, 
-                                                    TokenType.REP}:
-                    raise SyntaxError(f"Syntaxfel på rad {self.lexer.peek_token().row}")
-                subtree = self.expr()          # parse everything up to next non-instruction
-                
-                # check last row if quotation is closed 
-                # if not self.check_quote(self.last_row):
-                #     # if it wasn’t a QUOTE, throw with the right row
-                #     raise SyntaxError(f"Syntaxfel på rad {self.last_row} rep2")
-                
-                next_token = self.lexer.peek_token()
-                if next_token.type == TokenType.INVALID:
-                    raise SyntaxError(f"Syntaxfel på rad {next_token.row}")
-                
-                if next_token.type != TokenType.QUOTE:
-                    raise SyntaxError(f"Syntaxfel på rad {self.last_row}")
+        if token.type in {TokenType.FORW, TokenType.BACK, TokenType.LEFT, TokenType.RIGHT}:
+            command = self.consume(token.type).type.value
+            num = self.consume(TokenType.NUM).data
+            self.consume(TokenType.DOT)
+            return Node("Instruction", value=f"{command} {num}")
+        elif token.type in {TokenType.DOWN, TokenType.UP}:
+            command = self.consume(token.type).type.value
+            self.consume(TokenType.DOT)
+            return Node("Instruction", value=command)
+        elif token.type == TokenType.COLOR:
+            self.consume(TokenType.COLOR)
+            hex_val = self.consume(TokenType.HEX).data
+            self.consume(TokenType.DOT)
+            return Node("Instruction", value=f"COLOR {hex_val}")
+        elif token.type == TokenType.REP:
+            self.consume(TokenType.REP)
+            num = self.consume(TokenType.NUM).data
+            rep_node = self.rep()
+            return Node("Instruction", value=f"REP {num}", children=[rep_node])
+        else:
+            raise SyntaxError(f"Syntaxfel på rad {command_row}: Invalid instruction")
 
-                self.consume_token()            # consume the closing QUOTE
-                return RepeatNode(repeats_token.data, subtree)
-            else:
-                # no quotes → single instruction
-                subtree = self.instruction()
-                return RepeatNode(repeats_token.data, subtree)
-            
-        ## new method
-    def check_quote(self, last_row):
-        t = self.lexer.peek_token()
-        if t.type == TokenType.QUOTE:
-            return True
-        elif t.type == TokenType.EOF:
-            # exactly like Java’s chkQuote: throw on EOF
-            raise SyntaxError(f"Syntaxfel på rad {last_row}")
-        return False
-
+    def rep(self):
+        # <rep> ::= QUOTE <expr> QUOTE | <instruction>
+        if self.current_token.type == TokenType.QUOTE:
+            self.consume(TokenType.QUOTE)
+            expr_node = self.expr()
+            self.consume(TokenType.QUOTE)
+            return Node("Rep", children=[expr_node])
+        return Node("Rep", children=[self.instruction()])
 
 # Leona class for turtle 🐢 - Exekverar vårt parsetree
 class Leona:
@@ -431,14 +328,17 @@ def process_text(text):
     try:
         parsed_tree = parser.parse() # sätter igång parsern
         print("Parse Tree:") # printa träd 
-        print(parsed_tree.pretty_print()) 
+        parsed_tree.pretty_print()
+        leona = Leona()
+        parsed_tree.evaluate(leona) # exekvera trädet
+        for line in leona.lines: # print turtle output
+            print(line)
     except SyntaxError as e:
         print(e)
         return #                                                                               🐢 🐢
-    leona = Leona() 
-    parsed_tree.evaluate(leona) #                                                              🐢    🐢
-    for line in leona.lines: #                                                                   🐢🐢🐢
-        print(line)
+    except Exception as e:
+        print(f"Ett fel uppstod: {e}")
+        return #                                                                               🐢 🐢
 
 if __name__ == '__main__':
     main()
