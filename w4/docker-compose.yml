@@ -17,5 +17,6 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    # docker compose exec -it db psql postgres://user:password@localhost:5432/shopping_list
 volumes:
   db-data:

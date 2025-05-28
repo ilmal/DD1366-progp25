@@ -304,7 +304,7 @@ include 'header.php';
         </div>
         
         <div style="background: #f9f9f9; padding: 10px; margin: 10px 0; border-radius: 5px;">
-            <strong>Legend:</strong> 
+            <strong>Info:</strong> 
             <span style="color: green;">Green = Due now</span> | 
             <span style="color: orange;">Orange = Due soon</span> | 
             <span style="color: blue;">Blue = Suggested (never bought)</span>

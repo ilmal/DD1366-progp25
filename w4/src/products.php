@@ -57,23 +57,23 @@ include 'header.php';
 <h1>Manage Products</h1>
 
 <?php if (isset($success)): ?>
-    <p style="color: green;"><?= htmlspecialchars($success) ?></p>
+    <p><?= htmlspecialchars($success) ?></p>
 <?php endif; ?>
 <?php if (isset($error)): ?>
-    <p style="color: red;"><?= htmlspecialchars($error) ?></p>
+    <p><?= htmlspecialchars($error) ?></p>
 <?php endif; ?>
 
 <h2>Existing Products (<?= count($products) ?>)</h2>
 <?php if (empty($products)): ?>
     <p>No products found. Add your first product below.</p>
 <?php else: ?>
-    <ul style="list-style: none; padding: 0;">
+    <ul>
     <?php foreach ($products as $product): ?>
-        <li style="margin: 10px 0; padding: 10px; background: #f9f9f9; border-radius: 5px; display: flex; justify-content: space-between; align-items: center;">
+        <li>
             <span><strong><?= htmlspecialchars($product['name']) ?></strong></span>
             <form method="post" style="display:inline;" onsubmit="return confirm('Are you sure you want to delete this product? This will also remove all purchase history.')">
                 <input type="hidden" name="product_id" value="<?= $product['id'] ?>">
-                <button name="delete_product" style="background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer;">Delete</button>
+                <button name="delete_product">Delete</button>
             </form>
         </li>
     <?php endforeach; ?>
@@ -82,11 +82,11 @@ include 'header.php';
 
 <h2>Add New Product</h2>
 <form method="post">
-    <div style="margin: 10px 0;">
-        <input type="text" name="name" required placeholder="Product name" style="padding: 8px; width: 200px; border: 1px solid #ddd; border-radius: 3px;">
-        <button name="add_product" style="padding: 8px 15px; background: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; margin-left: 10px;">Add Product</button>
+    <div>
+        <input type="text" name="name" required placeholder="Product name">
+        <button name="add_product">Add Product</button>
     </div>
-    <p style="color: #666; font-size: 0.9em;">Note: Product names are case-insensitive. Duplicates will be rejected.</p>
+    <p>Note: Product names are case-insensitive. Duplicates will be rejected.</p>
 </form>
 
 <p><a href="shopping_list.php">← Back to Shopping List</a></p>
