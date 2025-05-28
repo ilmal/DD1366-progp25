@@ -2,12 +2,13 @@
 session_start();
 require('functions.php');
 if (!isset($_SESSION["logged_in_user"])) {
-    header("Location: index.php");
+    header("Location: login.php");
     exit();
 }
 $user_id = $_SESSION["user_id"];
 $loggedInUser = $_SESSION["logged_in_user"];
 
+// Rest of the code remains unchanged
 // Hantera session för inköpslistan
 if (!isset($_SESSION['shopping_list'])) {
     // Första gången: föreslå varor
@@ -106,9 +107,9 @@ $available_items = array_filter($available_items, function($item) {
                             </ul>
                         <?php endif; ?>
                         <form method="post">
-                            <button type="submit" name="save_list" class="btn btn-success btn-lg btn-block">Spara inköpslista &amp; gå till bekräftelse</button>
+                            <button type="submit" name="save_list" class="btn btn-success btn-lg btn-block">Spara inköpslista & gå till bekräftelse</button>
                         </form>
-                        <a href="modify_db.php" class="btn btn-secondary mt-3">Hantera varudatabasen</a>
+                        <a href="menu.php" class="btn btn-secondary mt-3">Tillbaka till menyn</a>
                     </div>
                 </div>
             </div>

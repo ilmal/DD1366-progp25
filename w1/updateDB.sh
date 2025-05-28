@@ -14,7 +14,7 @@ if [ ! -f "$SQL_FILE" ]; then
 fi
 
 # Option 1: Pipe the init.sql to psql
-cat ./init.sql | docker compose exec -T postgres psql -U w1 -d w1
+cat ./init.sql | sudo docker compose exec -T postgres psql -U w1 -d w1
 
 # Ensure PGPASSWORD is set if psql prompts for it, though often not needed if .pgpass is configured or trust auth.
 # For explicit password usage (if needed, replace 'pass123' with the actual password if it differs):

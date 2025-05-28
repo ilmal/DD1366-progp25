@@ -13,6 +13,12 @@ RUN apt-get update && apt-get install -y \
 # Enable Apache rewrite module
 RUN a2enmod rewrite
 
+# Set ServerName to suppress FQDN warning
+RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# Set DocumentRoot to /var/www/html/src
+RUN sed -i 's|DocumentRoot /var/www/html|DocumentRoot /var/www/html/src|' /etc/apache2/sites-available/000-default.conf
+
 # Set working directory
 WORKDIR /var/www/html
 
@@ -22,6 +28,10 @@ COPY . .
 # Ensure database directory is writable
 RUN chown -R www-data:www-data /var/www/html/database \
     && chmod -R 775 /var/www/html/database
+
+# Ensure session directory is writable
+RUN chown www-data:www-data /var/lib/php/sessions \
+    && chmod 770 /var/lib/php/sessions
 
 # Expose port 80
 EXPOSE 80
