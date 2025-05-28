@@ -1,45 +1,22 @@
-version: '3.8'
-
+version: '3'
 services:
-  php-app:
-    build:
-          context: .
-          dockerfile: dockerfile    
+  web:
+    build: .
     ports:
-      - "8080:80"
+      - "8000:80"
     volumes:
-      - ./database:/var/www/html/database
       - .:/var/www/html
-    environment:
-      - APACHE_DOCUMENT_ROOT=/var/www/html
-      - DB_HOST=postgres
-      - DB_PORT=5433
-      - DB_USER=w1
-      - DB_PASSWORD=pass123
-      - DB_NAME=w1
     depends_on:
-          postgres:
-            condition: service_healthy
-
-  postgres:
-    image: postgres:latest
-    expose:
-      - "5433"
-    ports:
-      - "5433:5433"
+      - db
+  db:
+    image: postgres:13
     environment:
-      - PGPORT=5433
-      - POSTGRES_USER=w1
-      - POSTGRES_PASSWORD=pass123
-      - POSTGRES_DB=w1
-      # docker compose exec -it postgres psql postgres://w1:pass123@postgres:5432/w1
+      POSTGRES_DB: shopping_list
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
     volumes:
-      - ./database:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U w1 -d w1"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
+      - db-data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    # docker compose exec -it db psql postgres://user:password@localhost:5432/shopping_list
 volumes:
-  database:
+  db-data:

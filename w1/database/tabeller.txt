@@ -1,3 +1,0 @@
-Tabeller:
-En tabell för kontot har skapats: login: usernam och password
-Men du behöver modifera och skapa fler tabellen för hantering av varor och inköslistor.

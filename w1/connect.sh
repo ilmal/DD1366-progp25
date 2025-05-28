@@ -1,1 +1,0 @@
-docker compose exec -it postgres psql postgres://w1:pass123@postgres:5433/w1
