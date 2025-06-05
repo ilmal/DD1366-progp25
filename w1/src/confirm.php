@@ -21,26 +21,24 @@ try {
                 error_log("POST request received in confirm.php");
                 error_log("POST data: " . print_r($_POST, true));
                 
-                // First, set all items in this shopping list to NOT purchased
+                // set all items in this shopping list to NOT purchased
                 $stmt = $pdo->prepare('UPDATE ShoppingListItems SET purchased = FALSE WHERE shopping_list_id = ?');
                 $result = $stmt->execute([$shopping_list_id]);
                 error_log("Reset all items to unpurchased, result: " . ($result ? 'success' : 'failed'));
                 
-                // Count how many items we have total
-                $stmt = $pdo->prepare('SELECT COUNT(*) FROM ShoppingListItems WHERE shopping_list_id = ?');
-                $stmt->execute([$shopping_list_id]);
-                $total_items = $stmt->fetchColumn();
-                error_log("Total items in shopping list: $total_items");
+                // // count items 
+                // $stmt = $pdo->prepare('SELECT COUNT(*) FROM ShoppingListItems WHERE shopping_list_id = ?');
+                // $stmt->execute([$shopping_list_id]);
+                // $total_items = $stmt->fetchColumn();
+                // error_log("Total items in shopping list: $total_items");
                 
                 // Then mark the checked items as purchased
-                $purchased_count = 0;
                 if (isset($_POST['purchased']) && is_array($_POST['purchased'])) {
                     error_log("Processing " . count($_POST['purchased']) . " purchased items");
                     $stmt = $pdo->prepare('UPDATE ShoppingListItems SET purchased = TRUE WHERE id = ? AND shopping_list_id = ?');
                     foreach ($_POST['purchased'] as $item_id) {
                         $result = $stmt->execute([$item_id, $shopping_list_id]);
                         if ($result) {
-                            $purchased_count++;
                             error_log("Marked item ID $item_id as purchased");
                         } else {
                             error_log("Failed to mark item ID $item_id as purchased");
@@ -50,8 +48,6 @@ try {
                     error_log("No purchased items in POST data");
                 }
                 
-                error_log("Marked $purchased_count items as purchased");
-
                 // Add any impulse buys
                 if (isset($_POST['new_products']) && !empty(trim($_POST['new_products']))) {
                     $new_products = array_map('trim', explode(',', $_POST['new_products']));
@@ -189,4 +185,4 @@ include 'header.php';
     </script>
 <?php endif; ?>
 
-<?php include 'footer.php'; ?>
+ 

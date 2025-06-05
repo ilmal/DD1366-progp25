@@ -91,4 +91,4 @@ include 'header.php';
 
 <p><a href="shopping_list.php">← Back to Shopping List</a></p>
 
-<?php include 'footer.php'; ?>
+ 

@@ -11,26 +11,23 @@ if (isset($_GET['success'])) {
 // Function to get purchase frequency estimate for a product
 function getPurchaseFrequency($pdo, $user_id, $product_id) {
     $stmt = $pdo->prepare('
-        SELECT purchase_date 
-        FROM Purchases 
-        WHERE user_id = ? AND product_id = ? 
-        ORDER BY purchase_date
+        WITH intervals AS (
+            SELECT (pu.purchase_date - LAG(pu.purchase_date) OVER (ORDER BY pu.purchase_date))::int AS interval
+            FROM Purchases pu
+            WHERE pu.user_id = ? AND pu.product_id = ?
+        )
+        SELECT GREATEST(AVG(interval), 0) AS avg_interval
+        FROM intervals
+        WHERE interval IS NOT NULL
     ');
     $stmt->execute([$user_id, $product_id]);
-    $purchases = $stmt->fetchAll();
+    $result = $stmt->fetch();
     
-    if (count($purchases) < 2) {
+    if (!$result || $result['avg_interval'] === null) {
         return "No pattern yet";
     }
     
-    $intervals = [];
-    for ($i = 1; $i < count($purchases); $i++) {
-        $prev_date = new DateTime($purchases[$i-1]['purchase_date']);
-        $curr_date = new DateTime($purchases[$i]['purchase_date']);
-        $intervals[] = $prev_date->diff($curr_date)->days;
-    }
-    
-    $avg_interval = array_sum($intervals) / count($intervals);
+    $avg_interval = $result['avg_interval'];
     
     if ($avg_interval < 7) {
         return "~" . round($avg_interval) . " days";
@@ -90,98 +87,30 @@ function getNextSuggestedDate($pdo, $user_id, $product_id) {
 
 // Simplified function to get suggested products
 function getSuggestedProducts($pdo, $user_id) {
-    // Get products that have never been purchased
-    $stmt = $pdo->prepare('
-        SELECT DISTINCT p.id, p.name
-        FROM Products p
-        WHERE p.user_id = ? 
-        AND p.id NOT IN (
-            SELECT DISTINCT pu.product_id 
-            FROM Purchases pu 
-            WHERE pu.user_id = ?
-        )
-    ');
-    $stmt->execute([$user_id, $user_id]);
-    $never_purchased = $stmt->fetchAll();
-
-    // Get products that are due for repurchasing based on their pattern (including 0-day intervals)
-    $stmt = $pdo->prepare('
-        WITH intervals AS (
-            SELECT p.id, (pu.purchase_date - LAG(pu.purchase_date) OVER (PARTITION BY p.id ORDER BY pu.purchase_date))::int AS interval
-            FROM Products p
-            JOIN Purchases pu ON p.id = pu.product_id AND p.user_id = pu.user_id
-            WHERE p.user_id = ?
-        ),
-        avg_intervals AS (
-            SELECT id, GREATEST(AVG(interval), 0) AS avg_interval
-            FROM intervals
-            WHERE interval IS NOT NULL
-            GROUP BY id
-            HAVING COUNT(*) >= 1
-        ),
-        last_purchases AS (
-            SELECT p.id, MAX(pu.purchase_date) AS last_purchase
-            FROM Products p
-            JOIN Purchases pu ON p.id = pu.product_id AND p.user_id = pu.user_id
-            WHERE p.user_id = ?
-            GROUP BY p.id
-        )
-        SELECT DISTINCT lp.id, p.name
-        FROM last_purchases lp
-        JOIN avg_intervals ai ON lp.id = ai.id
-        JOIN Products p ON lp.id = p.id
-        WHERE lp.last_purchase + (ai.avg_interval || \' days\')::interval <= CURRENT_DATE
-    ');
-    $stmt->execute([$user_id, $user_id]);
-    $pattern_based = $stmt->fetchAll();
-
-    // Also get products purchased more than 1 day ago as fallback for single purchases
-    $stmt = $pdo->prepare('
-        SELECT DISTINCT p.id, p.name
-        FROM Products p
-        WHERE p.user_id = ? 
-        AND p.id IN (
-            SELECT DISTINCT pu.product_id 
-            FROM Purchases pu 
-            WHERE pu.user_id = ? 
-            AND pu.purchase_date <= CURRENT_DATE - INTERVAL \'1 day\'
-        )
-        AND p.id NOT IN (
-            SELECT DISTINCT lp.id
-            FROM (
-                SELECT p2.id
-                FROM Products p2
-                JOIN Purchases pu3 ON p2.id = pu3.product_id AND p2.user_id = pu3.user_id
-                WHERE p2.user_id = ?
-                GROUP BY p2.id
-                HAVING COUNT(pu3.id) >= 2
-            ) lp
-        )
-    ');
-    $stmt->execute([$user_id, $user_id, $user_id]);
-    $single_purchase_old = $stmt->fetchAll();
-
-    // Merge all suggestions and remove duplicates
-    $all_suggestions = array_merge($never_purchased, $pattern_based, $single_purchase_old);
+    // Get all products for the user
+    $stmt = $pdo->prepare('SELECT id, name FROM Products WHERE user_id = ?');
+    $stmt->execute([$user_id]);
+    $all_products = $stmt->fetchAll();
     
-    // Remove duplicates based on product ID
-    $unique_suggestions = [];
-    $seen_ids = [];
-    foreach ($all_suggestions as $suggestion) {
-        if (!in_array($suggestion['id'], $seen_ids)) {
-            $unique_suggestions[] = $suggestion;
-            $seen_ids[] = $suggestion['id'];
+    $suggested_products = [];
+    
+    foreach ($all_products as $product) {
+        $frequency = getPurchaseFrequency($pdo, $user_id, $product['id']);
+        $next_suggested = getNextSuggestedDate($pdo, $user_id, $product['id']);
+        
+        // Suggest if never bought or if due now
+        if ($frequency === "No pattern yet" || $next_suggested === "Due now") {
+            $suggested_products[] = $product;
         }
     }
     
-    error_log("Suggested products: " . print_r(array_column($unique_suggestions, 'name'), true));
+    error_log("Suggested products: " . print_r(array_column($suggested_products, 'name'), true));
     
-    return $unique_suggestions;
+    return $suggested_products;
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     try {
-        // Add debugging
         error_log("POST request received");
         error_log("POST data: " . print_r($_POST, true));
         
@@ -328,7 +257,6 @@ include 'header.php';
                 }
             }
             
-            // Debug output for troubleshooting
             error_log("Product {$product['name']} (ID: {$product['id']}): Frequency=$frequency, Next=$next_suggested, Suggested=" . ($is_suggested ? 'YES' : 'NO'));
             ?>
             <div style="margin: 8px 0; padding: 5px; border-left: 3px solid <?= $color ?>;">
@@ -370,4 +298,4 @@ function deselectAll() {
 
 <p><a href="products.php">Manage Products</a></p>
 
-<?php include 'footer.php'; ?>
+ 

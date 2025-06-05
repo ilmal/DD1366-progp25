@@ -29,4 +29,4 @@ include 'header.php';
     <label>Password: <input type="password" name="password" required></label><br>
     <button type="submit">Login</button>
 </form>
-<?php include 'footer.php'; ?>
+ 
